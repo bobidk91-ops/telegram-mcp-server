@@ -2,11 +2,11 @@
   "name": "telegram-mcp-server",
   "version": "2.0.0",
   "description": "MCP Server for Telegram Bot API with blogging features",
-  "main": "dist/telegram-mcp-server.js",
+  "main": "dist/simple-server.js",
   "type": "module",
   "scripts": {
     "build": "tsc",
-    "start": "node dist/telegram-mcp-server.js",
+    "start": "node dist/simple-server.js",
     "dev": "ts-node --esm src/index.ts",
     "postinstall": "npm run build"
   },
