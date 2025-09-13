@@ -9,6 +9,8 @@ import {
 import TelegramBot from 'node-telegram-bot-api';
 import dotenv from 'dotenv';
 import express from 'express';
+import { WebSocketServer } from 'ws';
+import { createServer } from 'http';
 
 // Load environment variables
 dotenv.config();
@@ -21,8 +23,14 @@ const CHANNEL_ID = process.env.TELEGRAM_CHANNEL_ID || '@mymcptest';
 const app = express();
 app.use(express.json());
 
+// Create HTTP server
+const server = createServer(app);
+
+// Create WebSocket server for MCP
+const wss = new WebSocketServer({ server });
+
 // Create MCP Server
-const server = new Server(
+const mcpServer = new Server(
   {
     name: 'telegram-mcp-server',
     version: '1.0.0',
@@ -35,7 +43,7 @@ const server = new Server(
 );
 
 // Register tools
-server.setRequestHandler(ListToolsRequestSchema, async () => {
+mcpServer.setRequestHandler(ListToolsRequestSchema, async () => {
   return {
     tools: [
       {
@@ -180,7 +188,7 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
 });
 
 // Handle tool calls
-server.setRequestHandler(CallToolRequestSchema, async (request: any) => {
+mcpServer.setRequestHandler(CallToolRequestSchema, async (request: any) => {
   const { name, arguments: args } = request.params;
 
   try {
@@ -300,9 +308,15 @@ app.get('/', (req, res) => {
     version: '1.0.0',
     status: 'running',
     description: 'MCP Server for Telegram Bot API with blogging features',
+    mcp: {
+      protocol: 'MCP',
+      transport: 'WebSocket',
+      endpoint: '/mcp'
+    },
     endpoints: {
       health: '/health',
       tools: '/tools',
+      mcp: '/mcp',
       send_message: 'POST /api/send_message',
       send_photo: 'POST /api/send_photo',
       send_poll: 'POST /api/send_poll',
@@ -412,6 +426,64 @@ app.get('/tools', async (req, res) => {
   }
 });
 
+// MCP endpoint for HTTP-based MCP protocol
+app.post('/mcp', async (req, res) => {
+  try {
+    const { method, params } = req.body;
+    
+    if (method === 'tools/list') {
+      const toolsResponse = await mcpServer.request({
+        method: 'tools/list',
+        params: {}
+      }, ListToolsRequestSchema);
+      res.json(toolsResponse);
+    } else if (method === 'tools/call') {
+      const callResponse = await mcpServer.request({
+        method: 'tools/call',
+        params: params
+      }, CallToolRequestSchema);
+      res.json(callResponse);
+    } else {
+      res.status(400).json({ error: 'Unsupported method' });
+    }
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// WebSocket handler for MCP
+wss.on('connection', (ws) => {
+  console.log('MCP WebSocket client connected');
+  
+  ws.on('message', async (data) => {
+    try {
+      const message = JSON.parse(data.toString());
+      console.log('Received MCP message:', message);
+      
+      // Handle MCP protocol messages
+      if (message.method === 'tools/list') {
+        const response = await mcpServer.request({
+          method: 'tools/list',
+          params: {}
+        }, ListToolsRequestSchema);
+        ws.send(JSON.stringify(response));
+      } else if (message.method === 'tools/call') {
+        const response = await mcpServer.request({
+          method: 'tools/call',
+          params: message.params
+        }, CallToolRequestSchema);
+        ws.send(JSON.stringify(response));
+      }
+    } catch (error: any) {
+      ws.send(JSON.stringify({ error: error.message }));
+    }
+  });
+  
+  ws.on('close', () => {
+    console.log('MCP WebSocket client disconnected');
+  });
+});
+
 // API endpoints for direct HTTP access
 app.post('/api/send_message', async (req, res) => {
   try {
@@ -508,16 +580,20 @@ app.get('/api/channel_info', async (req, res) => {
 async function main() {
   const port = process.env.PORT || 8080;
   
-  // Start HTTP server
-  app.listen(port, () => {
-    console.log(`HTTP server running on port ${port}`);
-    console.log(`Visit: http://localhost:${port}`);
+  // Start HTTP server with WebSocket support
+  server.listen(port, () => {
+    console.log(`Server running on port ${port}`);
+    console.log(`HTTP API: http://localhost:${port}`);
+    console.log(`MCP WebSocket: ws://localhost:${port}`);
+    console.log(`MCP HTTP: http://localhost:${port}/mcp`);
   });
 
-  // Start MCP server
-  const transport = new StdioServerTransport();
-  await server.connect(transport);
-  console.error('Telegram MCP Server started');
+  // Start MCP server for stdio (local use)
+  if (process.env.NODE_ENV !== 'production') {
+    const transport = new StdioServerTransport();
+    await mcpServer.connect(transport);
+    console.error('Telegram MCP Server started (stdio)');
+  }
 }
 
 main().catch((error) => {
