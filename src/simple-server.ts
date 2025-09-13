@@ -14,7 +14,7 @@ console.log('🔧 Environment variables:');
 console.log('TELEGRAM_BOT_TOKEN:', TELEGRAM_BOT_TOKEN ? 'SET' : 'NOT SET');
 console.log('TELEGRAM_CHANNEL_ID:', CHANNEL_ID);
 
-// Root endpoint
+// Root endpoint - GET
 app.get('/', (req, res) => {
   res.json({
     name: 'telegram-mcp-server',
@@ -35,6 +35,162 @@ app.get('/', (req, res) => {
     },
     channel: CHANNEL_ID
   });
+});
+
+// Root endpoint - POST (for Make.com MCP connection)
+app.post('/', (req, res) => {
+  console.log('📨 POST request to root endpoint:', req.body);
+  
+  // Handle MCP protocol requests
+  const { jsonrpc, method, params, id } = req.body;
+  
+  if (jsonrpc === '2.0' && method) {
+    // This is an MCP request
+    switch (method) {
+      case 'initialize':
+        res.json({
+          jsonrpc: '2.0',
+          id,
+          result: {
+            protocolVersion: '2024-11-05',
+            capabilities: {
+              tools: {}
+            },
+            serverInfo: {
+              name: 'telegram-mcp-server',
+              version: '2.0.0'
+            }
+          }
+        });
+        break;
+        
+      case 'tools/list':
+        res.json({
+          jsonrpc: '2.0',
+          id,
+          result: {
+            tools: [
+              {
+                name: 'send_message',
+                description: 'Send a text message to the Telegram channel',
+                inputSchema: {
+                  type: 'object',
+                  properties: {
+                    text: {
+                      type: 'string',
+                      description: 'Message text to send',
+                    },
+                    parse_mode: {
+                      type: 'string',
+                      enum: ['HTML', 'Markdown'],
+                      description: 'Parse mode for the message (HTML or Markdown)',
+                    },
+                  },
+                  required: ['text'],
+                },
+              },
+              {
+                name: 'get_channel_info',
+                description: 'Get information about the Telegram channel',
+                inputSchema: {
+                  type: 'object',
+                  properties: {},
+                },
+              }
+            ]
+          }
+        });
+        break;
+        
+      case 'tools/call':
+        const { name, arguments: args } = params || {};
+        
+        if (!name) {
+          res.json({
+            jsonrpc: '2.0',
+            id,
+            error: {
+              code: -32602,
+              message: 'Tool name is required'
+            }
+          });
+          return;
+        }
+        
+        let result;
+        
+        switch (name) {
+          case 'send_message': {
+            const { text } = args || {};
+            
+            if (!text) {
+              result = {
+                success: false,
+                error: 'Text is required for send_message'
+              };
+            } else {
+              result = {
+                success: true,
+                message: 'Message would be sent to Telegram',
+                text: text,
+                channel: CHANNEL_ID,
+                note: 'This is a test response. Telegram integration requires proper bot setup.'
+              };
+            }
+            break;
+          }
+          
+          case 'get_channel_info': {
+            result = {
+              success: true,
+              channel: CHANNEL_ID,
+              title: 'Test Channel',
+              type: 'channel',
+              description: 'This is a test response. Real channel info requires proper bot setup.',
+              note: 'This is a test response. Real channel info requires proper bot setup.'
+            };
+            break;
+          }
+          
+          default:
+            result = {
+              success: false,
+              error: `Unknown tool: ${name}`
+            };
+        }
+        
+        res.json({
+          jsonrpc: '2.0',
+          id,
+          result: {
+            content: [
+              {
+                type: 'text',
+                text: JSON.stringify(result)
+              }
+            ]
+          }
+        });
+        break;
+        
+      default:
+        res.json({
+          jsonrpc: '2.0',
+          id,
+          error: {
+            code: -32601,
+            message: `Method not found: ${method}`
+          }
+        });
+    }
+  } else {
+    // Regular POST request
+    res.json({
+      message: 'POST request received',
+      body: req.body,
+      timestamp: new Date().toISOString()
+    });
+  }
 });
 
 // Health check endpoint
