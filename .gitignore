@@ -38,5 +38,6 @@ pids/
 # Coverage directory used by tools like istanbul
 coverage/
 
-# TypeScript cache
-*.tsbuildinfo
+# Temporary folders
+tmp/
+temp/

@@ -11,7 +11,7 @@ const TELEGRAM_BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
 const CHANNEL_ID = process.env.TELEGRAM_CHANNEL_ID || '@mymcptest';
 
 if (!TELEGRAM_BOT_TOKEN) {
-  console.error('TELEGRAM_BOT_TOKEN is not set in environment variables.');
+  console.error('❌ TELEGRAM_BOT_TOKEN is not set in environment variables.');
   process.exit(1);
 }
 
@@ -21,7 +21,7 @@ const bot = new TelegramBot(TELEGRAM_BOT_TOKEN, { polling: false });
 const server = new Server(
   {
     name: 'telegram-mcp-server',
-    version: '1.0.0',
+    version: '2.0.0',
   },
   {
     capabilities: {
@@ -47,7 +47,7 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
             parse_mode: {
               type: 'string',
               enum: ['HTML', 'Markdown'],
-              description: 'Parse mode for the message',
+              description: 'Parse mode for the message (HTML or Markdown)',
             },
           },
           required: ['text'],
@@ -89,16 +89,18 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
             options: {
               type: 'array',
               items: { type: 'string' },
+              minItems: 2,
+              maxItems: 10,
               description: 'Poll options (2-10 items)',
             },
             is_anonymous: {
               type: 'boolean',
-              description: 'Whether the poll is anonymous',
+              description: 'Whether the poll is anonymous (default: true)',
             },
             type: {
               type: 'string',
               enum: ['quiz', 'regular'],
-              description: 'Poll type',
+              description: 'Poll type (default: regular)',
             },
           },
           required: ['question', 'options'],
@@ -116,7 +118,7 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
             },
             emoji: {
               type: 'string',
-              description: 'Emoji to send as reaction',
+              description: 'Emoji to send as reaction (e.g., 👍, ❤️, 😂)',
             },
           },
           required: ['message_id', 'emoji'],
@@ -167,6 +169,52 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
           properties: {},
         },
       },
+      {
+        name: 'send_document',
+        description: 'Send a document to the Telegram channel',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            document_url: {
+              type: 'string',
+              description: 'URL of the document to send',
+            },
+            caption: {
+              type: 'string',
+              description: 'Document caption',
+            },
+            parse_mode: {
+              type: 'string',
+              enum: ['HTML', 'Markdown'],
+              description: 'Parse mode for the caption',
+            },
+          },
+          required: ['document_url'],
+        },
+      },
+      {
+        name: 'send_video',
+        description: 'Send a video to the Telegram channel',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            video_url: {
+              type: 'string',
+              description: 'URL of the video to send',
+            },
+            caption: {
+              type: 'string',
+              description: 'Video caption',
+            },
+            parse_mode: {
+              type: 'string',
+              enum: ['HTML', 'Markdown'],
+              description: 'Parse mode for the caption',
+            },
+          },
+          required: ['video_url'],
+        },
+      },
     ],
   };
 });
@@ -191,13 +239,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
           content: [
             {
               type: 'text',
-              text: JSON.stringify({
-                success: true,
-                message_id: result.message_id,
-                text: result.text,
-                date: result.date,
-                channel: CHANNEL_ID,
-              }),
+              text: `✅ Message sent successfully!\n\n📱 Channel: ${CHANNEL_ID}\n📝 Message ID: ${result.message_id}\n📄 Text: ${result.text}\n📅 Date: ${new Date(result.date * 1000).toLocaleString()}`,
             },
           ],
         };
@@ -219,13 +261,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
           content: [
             {
               type: 'text',
-              text: JSON.stringify({
-                success: true,
-                message_id: result.message_id,
-                photo: result.photo,
-                caption: result.caption,
-                channel: CHANNEL_ID,
-              }),
+              text: `✅ Photo sent successfully!\n\n📱 Channel: ${CHANNEL_ID}\n📝 Message ID: ${result.message_id}\n📷 Photo: ${result.photo?.[0]?.file_id}\n📄 Caption: ${caption || 'No caption'}`,
             },
           ],
         };
@@ -239,6 +275,10 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
           type?: string;
         };
         
+        if (options.length < 2 || options.length > 10) {
+          throw new Error('Poll must have between 2 and 10 options');
+        }
+        
         const result = await bot.sendPoll(CHANNEL_ID, question, options, {
           is_anonymous,
           type: type as any,
@@ -248,12 +288,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
           content: [
             {
               type: 'text',
-              text: JSON.stringify({
-                success: true,
-                message_id: result.message_id,
-                poll: result.poll,
-                channel: CHANNEL_ID,
-              }),
+              text: `✅ Poll created successfully!\n\n📱 Channel: ${CHANNEL_ID}\n📝 Message ID: ${result.message_id}\n❓ Question: ${question}\n📊 Options: ${options.length}\n🔒 Anonymous: ${is_anonymous ? 'Yes' : 'No'}\n📋 Type: ${type}`,
             },
           ],
         };
@@ -265,7 +300,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
           emoji: string;
         };
         
-        const result = await bot.setMessageReaction(CHANNEL_ID, message_id, {
+        await bot.setMessageReaction(CHANNEL_ID, message_id, {
           reaction: [{ type: 'emoji', emoji: emoji as any }],
         });
         
@@ -273,12 +308,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
           content: [
             {
               type: 'text',
-              text: JSON.stringify({
-                success: true,
-                message_id,
-                emoji,
-                channel: CHANNEL_ID,
-              }),
+              text: `✅ Reaction sent successfully!\n\n📱 Channel: ${CHANNEL_ID}\n📝 Message ID: ${message_id}\n😀 Emoji: ${emoji}`,
             },
           ],
         };
@@ -301,12 +331,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
           content: [
             {
               type: 'text',
-              text: JSON.stringify({
-                success: true,
-                message_id,
-                text: typeof result === 'object' && result !== null ? (result as any).text : text,
-                channel: CHANNEL_ID,
-              }),
+              text: `✅ Message edited successfully!\n\n📱 Channel: ${CHANNEL_ID}\n📝 Message ID: ${message_id}\n📄 New Text: ${text}`,
             },
           ],
         };
@@ -321,12 +346,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
           content: [
             {
               type: 'text',
-              text: JSON.stringify({
-                success: true,
-                message_id,
-                deleted: result,
-                channel: CHANNEL_ID,
-              }),
+              text: `✅ Message deleted successfully!\n\n📱 Channel: ${CHANNEL_ID}\n📝 Message ID: ${message_id}`,
             },
           ],
         };
@@ -339,14 +359,51 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
           content: [
             {
               type: 'text',
-              text: JSON.stringify({
-                success: true,
-                channel: CHANNEL_ID,
-                title: chat.title,
-                type: chat.type,
-                description: chat.description,
-                username: chat.username,
-              }),
+              text: `📱 Channel Information:\n\n🏷️ Title: ${chat.title}\n🆔 ID: ${chat.id}\n📝 Type: ${chat.type}\n👤 Username: ${chat.username || 'Not set'}\n📄 Description: ${chat.description || 'No description'}\n👥 Members: ${(chat as any).member_count || 'Unknown'}`,
+            },
+          ],
+        };
+      }
+
+      case 'send_document': {
+        const { document_url, caption, parse_mode = 'HTML' } = args as {
+          document_url: string;
+          caption?: string;
+          parse_mode?: string;
+        };
+        
+        const result = await bot.sendDocument(CHANNEL_ID, document_url, {
+          caption,
+          parse_mode: parse_mode as any,
+        });
+        
+        return {
+          content: [
+            {
+              type: 'text',
+              text: `✅ Document sent successfully!\n\n📱 Channel: ${CHANNEL_ID}\n📝 Message ID: ${result.message_id}\n📄 Document: ${result.document?.file_id}\n📄 Caption: ${caption || 'No caption'}`,
+            },
+          ],
+        };
+      }
+
+      case 'send_video': {
+        const { video_url, caption, parse_mode = 'HTML' } = args as {
+          video_url: string;
+          caption?: string;
+          parse_mode?: string;
+        };
+        
+        const result = await bot.sendVideo(CHANNEL_ID, video_url, {
+          caption,
+          parse_mode: parse_mode as any,
+        });
+        
+        return {
+          content: [
+            {
+              type: 'text',
+              text: `✅ Video sent successfully!\n\n📱 Channel: ${CHANNEL_ID}\n📝 Message ID: ${result.message_id}\n🎥 Video: ${result.video?.file_id}\n📄 Caption: ${caption || 'No caption'}`,
             },
           ],
         };
@@ -360,11 +417,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       content: [
         {
           type: 'text',
-          text: JSON.stringify({
-            success: false,
-            error: error.message,
-            tool: name,
-          }),
+          text: `❌ Error executing tool "${name}":\n\n${error.message}\n\nPlease check your input and try again.`,
         },
       ],
       isError: true,
@@ -374,14 +427,25 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 
 // Start the server
 async function main() {
-  const transport = new StdioServerTransport();
-  await server.connect(transport);
-  console.log('🚀 Telegram MCP Server running on stdio');
-  console.log(`📱 Channel: ${CHANNEL_ID}`);
-  console.log('✅ Ready for Make.com integration!');
+  try {
+    // Test bot connection
+    const botInfo = await bot.getMe();
+    console.log(`🤖 Bot connected: @${botInfo.username}`);
+    console.log(`📱 Target channel: ${CHANNEL_ID}`);
+    
+    const transport = new StdioServerTransport();
+    await server.connect(transport);
+    
+    console.log('🚀 Telegram MCP Server v2.0.0 running on stdio');
+    console.log('✅ Ready for ChatGPT and Make.com integration!');
+    console.log('📋 Available tools: send_message, send_photo, send_poll, send_reaction, edit_message, delete_message, get_channel_info, send_document, send_video');
+  } catch (error) {
+    console.error('❌ Server startup error:', error);
+    process.exit(1);
+  }
 }
 
 main().catch((error) => {
-  console.error('Server error:', error);
+  console.error('❌ Fatal error:', error);
   process.exit(1);
 });
