@@ -64,6 +64,228 @@ app.get('/', (req, res) => {
   });
 });
 
+// MCP tools/list endpoint - GET (for direct access)
+app.get('/tools/list', (req, res) => {
+  res.json({
+    jsonrpc: '2.0',
+    id: null,
+    result: {
+      tools: [
+        {
+          name: 'send_message',
+          description: 'Send a text message to the Telegram channel',
+          inputSchema: {
+            type: 'object',
+            properties: {
+              text: {
+                type: 'string',
+                description: 'Message text to send',
+              },
+              parse_mode: {
+                type: 'string',
+                enum: ['HTML', 'Markdown'],
+                description: 'Parse mode for the message (HTML or Markdown)',
+              },
+            },
+            required: ['text'],
+          },
+        },
+        {
+          name: 'send_photo',
+          description: 'Send a photo to the Telegram channel',
+          inputSchema: {
+            type: 'object',
+            properties: {
+              photo: {
+                type: 'string',
+                description: 'Photo URL or file path',
+              },
+              caption: {
+                type: 'string',
+                description: 'Photo caption',
+              },
+              parse_mode: {
+                type: 'string',
+                enum: ['HTML', 'Markdown'],
+                description: 'Parse mode for the caption',
+              },
+            },
+            required: ['photo'],
+          },
+        },
+        {
+          name: 'send_video',
+          description: 'Send a video to the Telegram channel',
+          inputSchema: {
+            type: 'object',
+            properties: {
+              video: {
+                type: 'string',
+                description: 'Video URL or file path',
+              },
+              caption: {
+                type: 'string',
+                description: 'Video caption',
+              },
+              parse_mode: {
+                type: 'string',
+                enum: ['HTML', 'Markdown'],
+                description: 'Parse mode for the caption',
+              },
+            },
+            required: ['video'],
+          },
+        },
+        {
+          name: 'send_document',
+          description: 'Send a document to the Telegram channel',
+          inputSchema: {
+            type: 'object',
+            properties: {
+              document: {
+                type: 'string',
+                description: 'Document URL or file path',
+              },
+              caption: {
+                type: 'string',
+                description: 'Document caption',
+              },
+              parse_mode: {
+                type: 'string',
+                enum: ['HTML', 'Markdown'],
+                description: 'Parse mode for the caption',
+              },
+            },
+            required: ['document'],
+          },
+        },
+        {
+          name: 'send_poll',
+          description: 'Send a poll to the Telegram channel',
+          inputSchema: {
+            type: 'object',
+            properties: {
+              question: {
+                type: 'string',
+                description: 'Poll question',
+              },
+              options: {
+                type: 'array',
+                items: { type: 'string' },
+                description: 'Poll options',
+              },
+              is_anonymous: {
+                type: 'boolean',
+                description: 'Whether the poll is anonymous',
+              },
+            },
+            required: ['question', 'options'],
+          },
+        },
+        {
+          name: 'send_reaction',
+          description: 'Send a reaction to a message',
+          inputSchema: {
+            type: 'object',
+            properties: {
+              message_id: {
+                type: 'number',
+                description: 'Message ID to react to',
+              },
+              reaction: {
+                type: 'string',
+                description: 'Reaction emoji',
+              },
+            },
+            required: ['message_id', 'reaction'],
+          },
+        },
+        {
+          name: 'edit_message',
+          description: 'Edit a message text',
+          inputSchema: {
+            type: 'object',
+            properties: {
+              message_id: {
+                type: 'number',
+                description: 'Message ID to edit',
+              },
+              text: {
+                type: 'string',
+                description: 'New message text',
+              },
+              parse_mode: {
+                type: 'string',
+                enum: ['HTML', 'Markdown'],
+                description: 'Parse mode for the message',
+              },
+            },
+            required: ['message_id', 'text'],
+          },
+        },
+        {
+          name: 'delete_message',
+          description: 'Delete a message',
+          inputSchema: {
+            type: 'object',
+            properties: {
+              message_id: {
+                type: 'number',
+                description: 'Message ID to delete',
+              },
+            },
+            required: ['message_id'],
+          },
+        },
+        {
+          name: 'pin_message',
+          description: 'Pin a message',
+          inputSchema: {
+            type: 'object',
+            properties: {
+              message_id: {
+                type: 'number',
+                description: 'Message ID to pin',
+              },
+            },
+            required: ['message_id'],
+          },
+        },
+        {
+          name: 'unpin_message',
+          description: 'Unpin a message',
+          inputSchema: {
+            type: 'object',
+            properties: {
+              message_id: {
+                type: 'number',
+                description: 'Message ID to unpin',
+              },
+            },
+            required: ['message_id'],
+          },
+        },
+        {
+          name: 'get_channel_info',
+          description: 'Get channel information',
+          inputSchema: {
+            type: 'object',
+            properties: {},
+          },
+        },
+        {
+          name: 'get_channel_stats',
+          description: 'Get channel statistics',
+          inputSchema: {
+            type: 'object',
+            properties: {},
+          },
+        },
+      ]
+    }
+  });
+});
+
 // Root endpoint - POST (for Make.com MCP connection)
 app.post('/', async (req, res) => {
   console.log('📨 POST request to root endpoint:', JSON.stringify(req.body, null, 2));
