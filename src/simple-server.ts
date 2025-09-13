@@ -1,6 +1,7 @@
 import 'dotenv/config';
 import express from 'express';
 import cors from 'cors';
+import TelegramBot from 'node-telegram-bot-api';
 
 const app = express();
 app.use(express.json());
@@ -13,6 +14,16 @@ const CHANNEL_ID = process.env.TELEGRAM_CHANNEL_ID || '@mymcptest';
 console.log('🔧 Environment variables:');
 console.log('TELEGRAM_BOT_TOKEN:', TELEGRAM_BOT_TOKEN ? 'SET' : 'NOT SET');
 console.log('TELEGRAM_CHANNEL_ID:', CHANNEL_ID);
+
+// Initialize Telegram Bot
+let bot;
+try {
+  bot = new TelegramBot(TELEGRAM_BOT_TOKEN, { polling: false });
+  console.log('🤖 Telegram Bot initialized');
+} catch (error) {
+  console.error('❌ Failed to initialize Telegram Bot:', error);
+  bot = null;
+}
 
 // Root endpoint - GET
 app.get('/', (req, res) => {
@@ -38,7 +49,7 @@ app.get('/', (req, res) => {
 });
 
 // Root endpoint - POST (for Make.com MCP connection)
-app.post('/', (req, res) => {
+app.post('/', async (req, res) => {
   console.log('📨 POST request to root endpoint:', req.body);
   
   // Handle MCP protocol requests
@@ -121,34 +132,71 @@ app.post('/', (req, res) => {
         
         switch (name) {
           case 'send_message': {
-            const { text } = args || {};
+            const { text, parse_mode = 'HTML' } = args || {};
             
             if (!text) {
               result = {
                 success: false,
                 error: 'Text is required for send_message'
               };
-            } else {
+            } else if (!bot) {
               result = {
-                success: true,
-                message: 'Message would be sent to Telegram',
-                text: text,
-                channel: CHANNEL_ID,
-                note: 'This is a test response. Telegram integration requires proper bot setup.'
+                success: false,
+                error: 'Telegram Bot not initialized. Check bot token.'
               };
+            } else {
+              try {
+                const response = await bot.sendMessage(CHANNEL_ID, text, {
+                  parse_mode: parse_mode as any,
+                });
+                
+                result = {
+                  success: true,
+                  message: 'Message sent to Telegram successfully!',
+                  message_id: response.message_id,
+                  text: response.text,
+                  channel: CHANNEL_ID,
+                  date: response.date,
+                  timestamp: new Date(response.date * 1000).toLocaleString()
+                };
+              } catch (error: any) {
+                result = {
+                  success: false,
+                  error: `Failed to send message: ${error.message}`,
+                  details: error.response?.body || error.message
+                };
+              }
             }
             break;
           }
           
           case 'get_channel_info': {
-            result = {
-              success: true,
-              channel: CHANNEL_ID,
-              title: 'Test Channel',
-              type: 'channel',
-              description: 'This is a test response. Real channel info requires proper bot setup.',
-              note: 'This is a test response. Real channel info requires proper bot setup.'
-            };
+            if (!bot) {
+              result = {
+                success: false,
+                error: 'Telegram Bot not initialized. Check bot token.'
+              };
+            } else {
+              try {
+                const chat = await bot.getChat(CHANNEL_ID);
+                
+                result = {
+                  success: true,
+                  channel: CHANNEL_ID,
+                  title: chat.title,
+                  type: chat.type,
+                  description: chat.description || 'No description',
+                  username: chat.username || 'No username',
+                  id: chat.id
+                };
+              } catch (error: any) {
+                result = {
+                  success: false,
+                  error: `Failed to get channel info: ${error.message}`,
+                  details: error.response?.body || error.message
+                };
+              }
+            }
             break;
           }
           
@@ -194,12 +242,27 @@ app.post('/', (req, res) => {
 });
 
 // Health check endpoint
-app.get('/health', (req, res) => {
+app.get('/health', async (req, res) => {
+  let bot_connected = false;
+  let bot_username = null;
+  
+  if (bot) {
+    try {
+      const botInfo = await bot.getMe();
+      bot_connected = true;
+      bot_username = botInfo.username;
+    } catch (error) {
+      console.error('Bot health check failed:', error);
+    }
+  }
+  
   res.json({
     status: 'healthy',
     timestamp: new Date().toISOString(),
     channel: CHANNEL_ID,
     bot_token_set: !!TELEGRAM_BOT_TOKEN,
+    bot_connected: bot_connected,
+    bot_username: bot_username,
     version: '2.0.0',
     mcp_server: true,
     environment: process.env.NODE_ENV || 'development'
