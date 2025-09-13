@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 # Telegram MCP Server
 
 MCP (Model Context Protocol) сервер для управления Telegram каналом с расширенными функциями для ведения блога.
@@ -239,3 +240,7 @@ npm start
 
 **Создано с ❤️ для эффективного управления Telegram каналами**
 
+=======
+# telegram-mcp-server
+mcp server for telegram
+>>>>>>> fb54e17625e49b9948af4ef175b0c1769a85d4d5
