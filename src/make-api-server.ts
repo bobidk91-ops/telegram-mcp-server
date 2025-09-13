@@ -31,9 +31,10 @@ app.use((req, res, next) => {
 app.get('/', (req, res) => {
   res.json({
     name: 'Telegram Bot API for Make.com',
-    version: '1.0.0',
+    version: '2.0.0',
     description: 'Simple HTTP API for Telegram bot integration with Make.com',
     base_url: req.protocol + '://' + req.get('host'),
+    status: 'running',
     endpoints: {
       health: 'GET /health',
       send_message: 'POST /send-message',
@@ -79,7 +80,8 @@ app.get('/health', (req, res) => {
     status: 'healthy', 
     timestamp: new Date().toISOString(),
     channel: CHANNEL_ID,
-    bot_connected: !!bot
+    bot_connected: !!bot,
+    version: '2.0.0'
   });
 });
 
@@ -352,10 +354,9 @@ app.use((req, res) => {
 // Start server
 const port = process.env.PORT || 8080;
 app.listen(port, () => {
-  console.log(`🚀 Telegram Bot API Server running on port ${port}`);
+  console.log(`🚀 Telegram Bot API Server v2.0.0 running on port ${port}`);
   console.log(`📱 Channel: ${CHANNEL_ID}`);
   console.log(`🌐 API URL: http://localhost:${port}`);
   console.log(`📖 Documentation: http://localhost:${port}/`);
   console.log(`✅ Ready for Make.com integration!`);
 });
-"// Force Railway redeploy - $(Get-Date)" 
