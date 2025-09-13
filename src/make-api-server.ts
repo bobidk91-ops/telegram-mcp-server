@@ -358,3 +358,4 @@ app.listen(port, () => {
   console.log(`📖 Documentation: http://localhost:${port}/`);
   console.log(`✅ Ready for Make.com integration!`);
 });
+"// Force Railway redeploy - $(Get-Date)" 
