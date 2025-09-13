@@ -66,10 +66,37 @@ app.get('/', (req, res) => {
 
 // Root endpoint - POST (for Make.com MCP connection)
 app.post('/', async (req, res) => {
-  console.log('📨 POST request to root endpoint:', req.body);
+  console.log('📨 POST request to root endpoint:', JSON.stringify(req.body, null, 2));
   
   // Handle MCP protocol requests
   const { jsonrpc, method, params, id } = req.body;
+  
+  // Validate MCP request format
+  if (!jsonrpc || jsonrpc !== '2.0') {
+    console.log('❌ Invalid JSON-RPC version:', jsonrpc);
+    res.status(400).json({
+      jsonrpc: '2.0',
+      id: id || null,
+      error: {
+        code: -32600,
+        message: 'Invalid Request: jsonrpc must be "2.0"'
+      }
+    });
+    return;
+  }
+  
+  if (!method) {
+    console.log('❌ Missing method in request');
+    res.status(400).json({
+      jsonrpc: '2.0',
+      id: id || null,
+      error: {
+        code: -32600,
+        message: 'Invalid Request: method is required'
+      }
+    });
+    return;
+  }
   
   if (jsonrpc === '2.0' && method) {
     // This is an MCP request
@@ -854,11 +881,15 @@ app.post('/', async (req, res) => {
         });
     }
   } else {
-    // Regular POST request
-    res.json({
-      message: 'POST request received',
-      body: req.body,
-      timestamp: new Date().toISOString()
+    // Invalid MCP request format
+    console.log('❌ Invalid MCP request format:', req.body);
+    res.status(400).json({
+      jsonrpc: '2.0',
+      id: id || null,
+      error: {
+        code: -32600,
+        message: 'Invalid Request: not a valid MCP request'
+      }
     });
   }
 });
