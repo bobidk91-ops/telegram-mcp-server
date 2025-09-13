@@ -567,7 +567,7 @@ app.post('/', async (req, res) => {
               };
             } else {
               try {
-                const response = await bot.setMessageReaction(CHANNEL_ID, message_id, emoji);
+                const response = await bot.setMessageReaction(CHANNEL_ID, message_id, { reaction: [{ type: 'emoji', emoji }] });
                 
                 result = {
                   success: true,
