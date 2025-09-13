@@ -362,7 +362,8 @@ app.get('/', (req, res) => {
 // Start server
 const port = process.env.PORT || 8080;
 app.listen(port, () => {
-  console.log(`Telegram MCP Server running on port ${port}`);
-  console.log(`MCP endpoint: http://localhost:${port}/mcp`);
-  console.log(`Health check: http://localhost:${port}/health`);
+  console.log(`🚀 Telegram MCP Server running on port ${port}`);
+  console.log(`📡 MCP endpoint: http://localhost:${port}/mcp`);
+  console.log(`❤️ Health check: http://localhost:${port}/health`);
+  console.log(`✅ Ready for OpenAI Claude Desktop connection!`);
 });
