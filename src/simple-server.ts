@@ -834,6 +834,15 @@ app.post('/', async (req, res) => {
         });
         break;
         
+      case 'notifications/initialized':
+        // MCP client initialization notification
+        res.json({
+          jsonrpc: '2.0',
+          id,
+          result: {}
+        });
+        break;
+        
       default:
         res.json({
           jsonrpc: '2.0',

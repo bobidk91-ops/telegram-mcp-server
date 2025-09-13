@@ -4,7 +4,7 @@
   "params": {
     "name": "send_message",
     "arguments": {
-      "text": "Проверка текущего состояния сервера",
+      "text": "Тест отправки сообщения для диагностики",
       "parse_mode": "HTML"
     }
   },
