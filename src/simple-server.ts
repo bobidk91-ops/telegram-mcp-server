@@ -8,9 +8,20 @@ app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 app.use(cors());
 
-// Default values if environment variables are not set
-const TELEGRAM_BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN || '8198346055:AAG01qXWGBwP4qzDlkZztPwshDdYw_DLFN0';
-const CHANNEL_ID = process.env.TELEGRAM_CHANNEL_ID || '@mymcptest';
+// Get environment variables
+const TELEGRAM_BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
+const CHANNEL_ID = process.env.TELEGRAM_CHANNEL_ID;
+
+// Check if required environment variables are set
+if (!TELEGRAM_BOT_TOKEN) {
+  console.error('❌ TELEGRAM_BOT_TOKEN environment variable is required!');
+  process.exit(1);
+}
+
+if (!CHANNEL_ID) {
+  console.error('❌ TELEGRAM_CHANNEL_ID environment variable is required!');
+  process.exit(1);
+}
 
 console.log('🔧 Environment variables:');
 console.log('TELEGRAM_BOT_TOKEN:', TELEGRAM_BOT_TOKEN ? 'SET' : 'NOT SET');
