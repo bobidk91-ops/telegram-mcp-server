@@ -41,13 +41,12 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
           properties: {
             text: {
               type: 'string',
-              description: 'The text message to send',
+              description: 'Message text to send',
             },
             parse_mode: {
               type: 'string',
+              description: 'Parse mode (HTML, Markdown, or MarkdownV2)',
               enum: ['HTML', 'Markdown', 'MarkdownV2'],
-              description: 'Parse mode for the message',
-              default: 'HTML',
             },
           },
           required: ['text'],
@@ -59,22 +58,21 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
         inputSchema: {
           type: 'object',
           properties: {
-            photo_url: {
+            photo: {
               type: 'string',
-              description: 'URL of the photo to send',
+              description: 'Photo URL or file path',
             },
             caption: {
               type: 'string',
-              description: 'Caption for the photo',
+              description: 'Photo caption',
             },
             parse_mode: {
               type: 'string',
+              description: 'Parse mode for caption',
               enum: ['HTML', 'Markdown', 'MarkdownV2'],
-              description: 'Parse mode for the caption',
-              default: 'HTML',
             },
           },
-          required: ['photo_url'],
+          required: ['photo'],
         },
       },
       {
@@ -85,14 +83,14 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
           properties: {
             question: {
               type: 'string',
-              description: 'The poll question',
+              description: 'Poll question',
             },
             options: {
               type: 'array',
               items: { type: 'string' },
+              description: 'Poll options (2-10 items)',
               minItems: 2,
               maxItems: 10,
-              description: 'Array of poll options (2-10 options)',
             },
             is_anonymous: {
               type: 'boolean',
@@ -101,17 +99,9 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
             },
             type: {
               type: 'string',
+              description: 'Poll type',
               enum: ['quiz', 'regular'],
-              description: 'Type of poll',
               default: 'regular',
-            },
-            correct_option_id: {
-              type: 'number',
-              description: 'Correct option ID for quiz polls (0-based)',
-            },
-            explanation: {
-              type: 'string',
-              description: 'Explanation for quiz polls',
             },
           },
           required: ['question', 'options'],
@@ -119,37 +109,54 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
       },
       {
         name: 'send_reaction',
-        description: 'Send a reaction (emoji) to a message',
+        description: 'Send a reaction to a message',
         inputSchema: {
           type: 'object',
           properties: {
             message_id: {
               type: 'number',
-              description: 'ID of the message to react to',
+              description: 'Message ID to react to',
             },
             emoji: {
               type: 'string',
               description: 'Emoji to send as reaction',
-              default: '👍',
             },
           },
           required: ['message_id', 'emoji'],
         },
       },
       {
-        name: 'pin_message',
-        description: 'Pin a message in the channel',
+        name: 'edit_message',
+        description: 'Edit an existing message',
         inputSchema: {
           type: 'object',
           properties: {
             message_id: {
               type: 'number',
-              description: 'ID of the message to pin',
+              description: 'Message ID to edit',
             },
-            disable_notification: {
-              type: 'boolean',
-              description: 'Whether to disable notification for pinned message',
-              default: false,
+            text: {
+              type: 'string',
+              description: 'New message text',
+            },
+            parse_mode: {
+              type: 'string',
+              description: 'Parse mode for new text',
+              enum: ['HTML', 'Markdown', 'MarkdownV2'],
+            },
+          },
+          required: ['message_id', 'text'],
+        },
+      },
+      {
+        name: 'delete_message',
+        description: 'Delete a message from the channel',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            message_id: {
+              type: 'number',
+              description: 'Message ID to delete',
             },
           },
           required: ['message_id'],
@@ -157,15 +164,7 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
       },
       {
         name: 'get_channel_info',
-        description: 'Get information about the channel',
-        inputSchema: {
-          type: 'object',
-          properties: {},
-        },
-      },
-      {
-        name: 'get_chat_member_count',
-        description: 'Get the number of members in the channel',
+        description: 'Get information about the Telegram channel',
         inputSchema: {
           type: 'object',
           properties: {},
@@ -195,7 +194,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request: any) => {
         };
 
       case 'send_photo':
-        const photoResult = await bot.sendPhoto(CHANNEL_ID, args.photo_url, {
+        const photoResult = await bot.sendPhoto(CHANNEL_ID, args.photo, {
           caption: args.caption,
           parse_mode: args.parse_mode || 'HTML',
         });
@@ -209,21 +208,10 @@ server.setRequestHandler(CallToolRequestSchema, async (request: any) => {
         };
 
       case 'send_poll':
-        const pollOptions: any = {
-          question: args.question,
-          options: args.options,
+        const pollResult = await bot.sendPoll(CHANNEL_ID, args.question, args.options, {
           is_anonymous: args.is_anonymous !== false,
           type: args.type || 'regular',
-        };
-
-        if (args.type === 'quiz' && args.correct_option_id !== undefined) {
-          pollOptions.correct_option_id = args.correct_option_id;
-          if (args.explanation) {
-            pollOptions.explanation = args.explanation;
-          }
-        }
-
-        const pollResult = await bot.sendPoll(CHANNEL_ID, pollOptions);
+        });
         return {
           content: [
             {
@@ -234,7 +222,10 @@ server.setRequestHandler(CallToolRequestSchema, async (request: any) => {
         };
 
       case 'send_reaction':
-        await bot.setMessageReaction(CHANNEL_ID, args.message_id, [{ type: 'emoji', emoji: args.emoji }] as any);
+        await bot.setMessageReaction(CHANNEL_ID, args.message_id, [{ 
+          type: 'emoji', 
+          emoji: args.emoji 
+        }] as any);
         return {
           content: [
             {
@@ -244,15 +235,28 @@ server.setRequestHandler(CallToolRequestSchema, async (request: any) => {
           ],
         };
 
-      case 'pin_message':
-        await bot.pinChatMessage(CHANNEL_ID, args.message_id, {
-          disable_notification: args.disable_notification || false,
+      case 'edit_message':
+        await bot.editMessageText(args.text, {
+          chat_id: CHANNEL_ID,
+          message_id: args.message_id,
+          parse_mode: args.parse_mode || 'HTML',
         });
         return {
           content: [
             {
               type: 'text',
-              text: `Message pinned successfully!`,
+              text: `Message edited successfully!`,
+            },
+          ],
+        };
+
+      case 'delete_message':
+        await bot.deleteMessage(CHANNEL_ID, args.message_id);
+        return {
+          content: [
+            {
+              type: 'text',
+              text: `Message deleted successfully!`,
             },
           ],
         };
@@ -268,26 +272,15 @@ server.setRequestHandler(CallToolRequestSchema, async (request: any) => {
           ],
         };
 
-      case 'get_chat_member_count':
-        const memberCount = await bot.getChatMemberCount(CHANNEL_ID);
-        return {
-          content: [
-            {
-              type: 'text',
-              text: `Channel has ${memberCount} members`,
-            },
-          ],
-        };
-
       default:
         throw new Error(`Unknown tool: ${name}`);
     }
-  } catch (error) {
+  } catch (error: any) {
     return {
       content: [
         {
           type: 'text',
-          text: `Error executing ${name}: ${error instanceof Error ? error.message : String(error)}`,
+          text: `Error: ${error.message}`,
         },
       ],
       isError: true,
@@ -295,11 +288,14 @@ server.setRequestHandler(CallToolRequestSchema, async (request: any) => {
   }
 });
 
-// Start MCP Server
+// Start the server
 async function main() {
   const transport = new StdioServerTransport();
   await server.connect(transport);
-  console.log('Telegram MCP Server started');
+  console.error('Telegram MCP Server started');
 }
 
-main().catch(console.error);
+main().catch((error) => {
+  console.error('Failed to start server:', error);
+  process.exit(1);
+});
