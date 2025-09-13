@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 
-import { Server } from '@modelcontextprotocol/sdk/server/index.js';
+import { McpServer } from '@modelcontextprotocol/sdk/server/index.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import {
   CallToolRequestSchema,
@@ -17,7 +17,7 @@ const bot = new TelegramBot(process.env.TELEGRAM_BOT_TOKEN || '', { polling: fal
 const CHANNEL_ID = process.env.TELEGRAM_CHANNEL_ID || '@mymcptest';
 
 // Create MCP Server
-const server = new Server(
+const server = new McpServer(
   {
     name: 'telegram-mcp-server',
     version: '1.0.0',
