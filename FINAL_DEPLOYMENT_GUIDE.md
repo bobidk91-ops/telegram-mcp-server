@@ -189,3 +189,4 @@ curl -X POST https://your-project-url.up.railway.app/mcp \
 **Ваш проект полностью готов! Просто установите Git и запустите `deploy.bat`**
 
 **Время развертывания: ~15 минут**
+

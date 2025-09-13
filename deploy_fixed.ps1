@@ -119,3 +119,4 @@ Write-Host "   NODE_ENV = production" -ForegroundColor White
 Write-Host ""
 
 Read-Host "Press Enter to exit"
+

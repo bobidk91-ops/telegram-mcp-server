@@ -1,4 +1,4 @@
-@echo off
+y@echo off
 echo 🚀 Telegram MCP Server Deployment Script
 echo =====================================
 echo.
@@ -110,3 +110,4 @@ echo    NODE_ENV = production
 echo.
 
 pause
+

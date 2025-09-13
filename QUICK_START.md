@@ -199,3 +199,4 @@ curl https://your-project-name-production.up.railway.app/health
 ---
 
 **Готово! Ваш Telegram MCP Server запущен и готов к работе! 🎉**
+

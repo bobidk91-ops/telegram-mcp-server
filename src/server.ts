@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 
-import { McpServer } from '@modelcontextprotocol/sdk/server/index.js';
+import { Server } from '@modelcontextprotocol/sdk/server/index.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import {
   CallToolRequestSchema,
@@ -17,7 +17,7 @@ const bot = new TelegramBot(process.env.TELEGRAM_BOT_TOKEN || '', { polling: fal
 const CHANNEL_ID = process.env.TELEGRAM_CHANNEL_ID || '@mymcptest';
 
 // Create MCP Server
-const server = new McpServer(
+const server = new Server(
   {
     name: 'telegram-mcp-server',
     version: '1.0.0',
@@ -75,30 +75,6 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
             },
           },
           required: ['photo_url'],
-        },
-      },
-      {
-        name: 'send_document',
-        description: 'Send a document to the Telegram channel',
-        inputSchema: {
-          type: 'object',
-          properties: {
-            document_url: {
-              type: 'string',
-              description: 'URL of the document to send',
-            },
-            caption: {
-              type: 'string',
-              description: 'Caption for the document',
-            },
-            parse_mode: {
-              type: 'string',
-              enum: ['HTML', 'Markdown', 'MarkdownV2'],
-              description: 'Parse mode for the caption',
-              default: 'HTML',
-            },
-          },
-          required: ['document_url'],
         },
       },
       {
@@ -180,20 +156,6 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
         },
       },
       {
-        name: 'unpin_message',
-        description: 'Unpin a message in the channel',
-        inputSchema: {
-          type: 'object',
-          properties: {
-            message_id: {
-              type: 'number',
-              description: 'ID of the message to unpin',
-            },
-          },
-          required: ['message_id'],
-        },
-      },
-      {
         name: 'get_channel_info',
         description: 'Get information about the channel',
         inputSchema: {
@@ -207,125 +169,6 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
         inputSchema: {
           type: 'object',
           properties: {},
-        },
-      },
-      {
-        name: 'send_media_group',
-        description: 'Send multiple photos/videos as an album',
-        inputSchema: {
-          type: 'object',
-          properties: {
-            media: {
-              type: 'array',
-              items: {
-                type: 'object',
-                properties: {
-                  type: { type: 'string', enum: ['photo', 'video'] },
-                  media: { type: 'string', description: 'URL or file_id of the media' },
-                  caption: { type: 'string', description: 'Caption for this media item' },
-                },
-                required: ['type', 'media'],
-              },
-              minItems: 2,
-              maxItems: 10,
-              description: 'Array of media items (2-10 items)',
-            },
-          },
-          required: ['media'],
-        },
-      },
-      {
-        name: 'edit_message',
-        description: 'Edit a previously sent message',
-        inputSchema: {
-          type: 'object',
-          properties: {
-            message_id: {
-              type: 'number',
-              description: 'ID of the message to edit',
-            },
-            text: {
-              type: 'string',
-              description: 'New text content',
-            },
-            parse_mode: {
-              type: 'string',
-              enum: ['HTML', 'Markdown', 'MarkdownV2'],
-              description: 'Parse mode for the message',
-              default: 'HTML',
-            },
-          },
-          required: ['message_id', 'text'],
-        },
-      },
-      {
-        name: 'delete_message',
-        description: 'Delete a message from the channel',
-        inputSchema: {
-          type: 'object',
-          properties: {
-            message_id: {
-              type: 'number',
-              description: 'ID of the message to delete',
-            },
-          },
-          required: ['message_id'],
-        },
-      },
-      {
-        name: 'send_venue',
-        description: 'Send information about a venue',
-        inputSchema: {
-          type: 'object',
-          properties: {
-            latitude: {
-              type: 'number',
-              description: 'Latitude of the venue',
-            },
-            longitude: {
-              type: 'number',
-              description: 'Longitude of the venue',
-            },
-            title: {
-              type: 'string',
-              description: 'Name of the venue',
-            },
-            address: {
-              type: 'string',
-              description: 'Address of the venue',
-            },
-            foursquare_id: {
-              type: 'string',
-              description: 'Foursquare identifier of the venue',
-            },
-          },
-          required: ['latitude', 'longitude', 'title', 'address'],
-        },
-      },
-      {
-        name: 'send_contact',
-        description: 'Send a contact',
-        inputSchema: {
-          type: 'object',
-          properties: {
-            phone_number: {
-              type: 'string',
-              description: 'Contact phone number',
-            },
-            first_name: {
-              type: 'string',
-              description: 'Contact first name',
-            },
-            last_name: {
-              type: 'string',
-              description: 'Contact last name',
-            },
-            vcard: {
-              type: 'string',
-              description: 'Additional data about the contact in the form of a vCard',
-            },
-          },
-          required: ['phone_number', 'first_name'],
         },
       },
     ],
@@ -361,20 +204,6 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
             {
               type: 'text',
               text: `Photo sent successfully! Message ID: ${photoResult.message_id}`,
-            },
-          ],
-        };
-
-      case 'send_document':
-        const documentResult = await bot.sendDocument(CHANNEL_ID, args.document_url, {
-          caption: args.caption,
-          parse_mode: args.parse_mode || 'HTML',
-        });
-        return {
-          content: [
-            {
-              type: 'text',
-              text: `Document sent successfully! Message ID: ${documentResult.message_id}`,
             },
           ],
         };
@@ -428,17 +257,6 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
           ],
         };
 
-      case 'unpin_message':
-        await bot.unpinChatMessage(CHANNEL_ID, args.message_id);
-        return {
-          content: [
-            {
-              type: 'text',
-              text: `Message unpinned successfully!`,
-            },
-          ],
-        };
-
       case 'get_channel_info':
         const chatInfo = await bot.getChat(CHANNEL_ID);
         return {
@@ -457,70 +275,6 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
             {
               type: 'text',
               text: `Channel has ${memberCount} members`,
-            },
-          ],
-        };
-
-      case 'send_media_group':
-        const mediaGroupResult = await bot.sendMediaGroup(CHANNEL_ID, args.media);
-        return {
-          content: [
-            {
-              type: 'text',
-              text: `Media group sent successfully! Message IDs: ${mediaGroupResult.map(m => m.message_id).join(', ')}`,
-            },
-          ],
-        };
-
-      case 'edit_message':
-        const editResult = await bot.editMessageText(args.text, {
-          chat_id: CHANNEL_ID,
-          message_id: args.message_id,
-          parse_mode: args.parse_mode || 'HTML',
-        });
-        return {
-          content: [
-            {
-              type: 'text',
-              text: `Message edited successfully!`,
-            },
-          ],
-        };
-
-      case 'delete_message':
-        await bot.deleteMessage(CHANNEL_ID, args.message_id);
-        return {
-          content: [
-            {
-              type: 'text',
-              text: `Message deleted successfully!`,
-            },
-          ],
-        };
-
-      case 'send_venue':
-        const venueResult = await bot.sendVenue(CHANNEL_ID, args.latitude, args.longitude, args.title, args.address, {
-          foursquare_id: args.foursquare_id,
-        });
-        return {
-          content: [
-            {
-              type: 'text',
-              text: `Venue sent successfully! Message ID: ${venueResult.message_id}`,
-            },
-          ],
-        };
-
-      case 'send_contact':
-        const contactResult = await bot.sendContact(CHANNEL_ID, args.phone_number, args.first_name, {
-          last_name: args.last_name,
-          vcard: args.vcard,
-        });
-        return {
-          content: [
-            {
-              type: 'text',
-              text: `Contact sent successfully! Message ID: ${contactResult.message_id}`,
             },
           ],
         };
