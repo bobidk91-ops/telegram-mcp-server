@@ -4,7 +4,8 @@ import cors from 'cors';
 import TelegramBot from 'node-telegram-bot-api';
 
 const app = express();
-app.use(express.json());
+app.use(express.json({ limit: '10mb' }));
+app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 app.use(cors());
 
 // Default values if environment variables are not set
@@ -18,7 +19,9 @@ console.log('TELEGRAM_CHANNEL_ID:', CHANNEL_ID);
 // Initialize Telegram Bot
 let bot;
 try {
-  bot = new TelegramBot(TELEGRAM_BOT_TOKEN, { polling: false });
+  bot = new TelegramBot(TELEGRAM_BOT_TOKEN, { 
+    polling: false
+  });
   console.log('🤖 Telegram Bot initialized');
 } catch (error) {
   console.error('❌ Failed to initialize Telegram Bot:', error);
@@ -351,7 +354,9 @@ app.post('/', async (req, res) => {
               };
             } else {
               try {
-                const response = await bot.sendMessage(CHANNEL_ID, text, {
+                // Ensure proper UTF-8 encoding
+                const encodedText = Buffer.from(text, 'utf8').toString('utf8');
+                const response = await bot.sendMessage(CHANNEL_ID, encodedText, {
                   parse_mode: parse_mode as any,
                 });
                 
@@ -602,7 +607,9 @@ app.post('/', async (req, res) => {
               };
             } else {
               try {
-                const response = await bot.editMessageText(text, {
+                // Ensure proper UTF-8 encoding
+                const encodedText = Buffer.from(text, 'utf8').toString('utf8');
+                const response = await bot.editMessageText(encodedText, {
                   chat_id: CHANNEL_ID,
                   message_id,
                   parse_mode: parse_mode as any,
