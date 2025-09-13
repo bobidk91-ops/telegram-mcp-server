@@ -451,6 +451,38 @@ app.post('/mcp', async (req, res) => {
   }
 });
 
+// MCP WebSocket endpoint
+app.get('/mcp', (req, res) => {
+  res.json({
+    name: 'Telegram MCP Server',
+    version: '1.0.0',
+    description: 'MCP Server for Telegram Bot API',
+    protocol: 'MCP',
+    transport: 'WebSocket',
+    endpoints: {
+      websocket: '/mcp/ws',
+      http: '/mcp'
+    },
+    tools: [
+      'send_message',
+      'send_photo', 
+      'send_poll',
+      'send_reaction',
+      'edit_message',
+      'delete_message',
+      'get_channel_info'
+    ]
+  });
+});
+
+// WebSocket endpoint for MCP
+app.get('/mcp/ws', (req, res) => {
+  res.json({
+    message: 'Use WebSocket connection',
+    websocket_url: `wss://${req.get('host')}/mcp/ws`
+  });
+});
+
 // WebSocket handler for MCP
 wss.on('connection', (ws) => {
   console.log('MCP WebSocket client connected');

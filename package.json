@@ -7,7 +7,9 @@
   "scripts": {
     "build": "tsc",
     "start": "node dist/server.js",
+    "start:mcp": "node dist/http-mcp-server.js",
     "dev": "ts-node --esm src/server.ts",
+    "dev:mcp": "ts-node --esm src/http-mcp-server.ts",
     "watch": "tsc --watch"
   },
   "keywords": ["mcp", "telegram", "bot", "blogging", "api"],
