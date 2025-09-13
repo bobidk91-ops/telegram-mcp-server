@@ -101,8 +101,213 @@ app.post('/', async (req, res) => {
                 },
               },
               {
+                name: 'send_photo',
+                description: 'Send a photo to the Telegram channel',
+                inputSchema: {
+                  type: 'object',
+                  properties: {
+                    photo: {
+                      type: 'string',
+                      description: 'Photo URL or file path',
+                    },
+                    caption: {
+                      type: 'string',
+                      description: 'Photo caption',
+                    },
+                    parse_mode: {
+                      type: 'string',
+                      enum: ['HTML', 'Markdown'],
+                      description: 'Parse mode for the caption',
+                    },
+                  },
+                  required: ['photo'],
+                },
+              },
+              {
+                name: 'send_video',
+                description: 'Send a video to the Telegram channel',
+                inputSchema: {
+                  type: 'object',
+                  properties: {
+                    video: {
+                      type: 'string',
+                      description: 'Video URL or file path',
+                    },
+                    caption: {
+                      type: 'string',
+                      description: 'Video caption',
+                    },
+                    duration: {
+                      type: 'number',
+                      description: 'Video duration in seconds',
+                    },
+                    width: {
+                      type: 'number',
+                      description: 'Video width',
+                    },
+                    height: {
+                      type: 'number',
+                      description: 'Video height',
+                    },
+                  },
+                  required: ['video'],
+                },
+              },
+              {
+                name: 'send_document',
+                description: 'Send a document to the Telegram channel',
+                inputSchema: {
+                  type: 'object',
+                  properties: {
+                    document: {
+                      type: 'string',
+                      description: 'Document URL or file path',
+                    },
+                    caption: {
+                      type: 'string',
+                      description: 'Document caption',
+                    },
+                    filename: {
+                      type: 'string',
+                      description: 'Custom filename for the document',
+                    },
+                  },
+                  required: ['document'],
+                },
+              },
+              {
+                name: 'send_poll',
+                description: 'Send a poll to the Telegram channel',
+                inputSchema: {
+                  type: 'object',
+                  properties: {
+                    question: {
+                      type: 'string',
+                      description: 'Poll question',
+                    },
+                    options: {
+                      type: 'array',
+                      items: { type: 'string' },
+                      description: 'Poll options (2-10 options)',
+                    },
+                    is_anonymous: {
+                      type: 'boolean',
+                      description: 'Whether the poll is anonymous',
+                    },
+                    type: {
+                      type: 'string',
+                      enum: ['quiz', 'regular'],
+                      description: 'Poll type',
+                    },
+                    correct_option_id: {
+                      type: 'number',
+                      description: 'Correct option ID for quiz polls',
+                    },
+                    explanation: {
+                      type: 'string',
+                      description: 'Explanation for quiz polls',
+                    },
+                  },
+                  required: ['question', 'options'],
+                },
+              },
+              {
+                name: 'send_reaction',
+                description: 'Send a reaction to a message',
+                inputSchema: {
+                  type: 'object',
+                  properties: {
+                    message_id: {
+                      type: 'number',
+                      description: 'Message ID to react to',
+                    },
+                    emoji: {
+                      type: 'string',
+                      description: 'Emoji to react with',
+                    },
+                  },
+                  required: ['message_id', 'emoji'],
+                },
+              },
+              {
+                name: 'edit_message',
+                description: 'Edit a message in the Telegram channel',
+                inputSchema: {
+                  type: 'object',
+                  properties: {
+                    message_id: {
+                      type: 'number',
+                      description: 'Message ID to edit',
+                    },
+                    text: {
+                      type: 'string',
+                      description: 'New message text',
+                    },
+                    parse_mode: {
+                      type: 'string',
+                      enum: ['HTML', 'Markdown'],
+                      description: 'Parse mode for the message',
+                    },
+                  },
+                  required: ['message_id', 'text'],
+                },
+              },
+              {
+                name: 'delete_message',
+                description: 'Delete a message from the Telegram channel',
+                inputSchema: {
+                  type: 'object',
+                  properties: {
+                    message_id: {
+                      type: 'number',
+                      description: 'Message ID to delete',
+                    },
+                  },
+                  required: ['message_id'],
+                },
+              },
+              {
+                name: 'pin_message',
+                description: 'Pin a message in the Telegram channel',
+                inputSchema: {
+                  type: 'object',
+                  properties: {
+                    message_id: {
+                      type: 'number',
+                      description: 'Message ID to pin',
+                    },
+                    disable_notification: {
+                      type: 'boolean',
+                      description: 'Whether to disable notification for pinned message',
+                    },
+                  },
+                  required: ['message_id'],
+                },
+              },
+              {
+                name: 'unpin_message',
+                description: 'Unpin a message in the Telegram channel',
+                inputSchema: {
+                  type: 'object',
+                  properties: {
+                    message_id: {
+                      type: 'number',
+                      description: 'Message ID to unpin (optional, unpins all if not specified)',
+                    },
+                  },
+                },
+              },
+              {
                 name: 'get_channel_info',
                 description: 'Get information about the Telegram channel',
+                inputSchema: {
+                  type: 'object',
+                  properties: {},
+                },
+              },
+              {
+                name: 'get_channel_stats',
+                description: 'Get channel statistics and member count',
                 inputSchema: {
                   type: 'object',
                   properties: {},
@@ -169,6 +374,362 @@ app.post('/', async (req, res) => {
             }
             break;
           }
+
+          case 'send_photo': {
+            const { photo, caption, parse_mode = 'HTML' } = args || {};
+            
+            if (!photo) {
+              result = {
+                success: false,
+                error: 'Photo URL is required for send_photo'
+              };
+            } else if (!bot) {
+              result = {
+                success: false,
+                error: 'Telegram Bot not initialized. Check bot token.'
+              };
+            } else {
+              try {
+                const response = await bot.sendPhoto(CHANNEL_ID, photo, {
+                  caption,
+                  parse_mode: parse_mode as any,
+                });
+                
+                result = {
+                  success: true,
+                  message: 'Photo sent to Telegram successfully!',
+                  message_id: response.message_id,
+                  photo: response.photo,
+                  caption: response.caption,
+                  channel: CHANNEL_ID,
+                  date: response.date,
+                  timestamp: new Date(response.date * 1000).toLocaleString()
+                };
+              } catch (error: any) {
+                result = {
+                  success: false,
+                  error: `Failed to send photo: ${error.message}`,
+                  details: error.response?.body || error.message
+                };
+              }
+            }
+            break;
+          }
+
+          case 'send_video': {
+            const { video, caption, duration, width, height, parse_mode = 'HTML' } = args || {};
+            
+            if (!video) {
+              result = {
+                success: false,
+                error: 'Video URL is required for send_video'
+              };
+            } else if (!bot) {
+              result = {
+                success: false,
+                error: 'Telegram Bot not initialized. Check bot token.'
+              };
+            } else {
+              try {
+                const response = await bot.sendVideo(CHANNEL_ID, video, {
+                  caption,
+                  duration,
+                  width,
+                  height,
+                  parse_mode: parse_mode as any,
+                });
+                
+                result = {
+                  success: true,
+                  message: 'Video sent to Telegram successfully!',
+                  message_id: response.message_id,
+                  video: response.video,
+                  caption: response.caption,
+                  channel: CHANNEL_ID,
+                  date: response.date,
+                  timestamp: new Date(response.date * 1000).toLocaleString()
+                };
+              } catch (error: any) {
+                result = {
+                  success: false,
+                  error: `Failed to send video: ${error.message}`,
+                  details: error.response?.body || error.message
+                };
+              }
+            }
+            break;
+          }
+
+          case 'send_document': {
+            const { document, caption, filename, parse_mode = 'HTML' } = args || {};
+            
+            if (!document) {
+              result = {
+                success: false,
+                error: 'Document URL is required for send_document'
+              };
+            } else if (!bot) {
+              result = {
+                success: false,
+                error: 'Telegram Bot not initialized. Check bot token.'
+              };
+            } else {
+              try {
+                const response = await bot.sendDocument(CHANNEL_ID, document, {
+                  caption,
+                  parse_mode: parse_mode as any,
+                });
+                
+                result = {
+                  success: true,
+                  message: 'Document sent to Telegram successfully!',
+                  message_id: response.message_id,
+                  document: response.document,
+                  caption: response.caption,
+                  channel: CHANNEL_ID,
+                  date: response.date,
+                  timestamp: new Date(response.date * 1000).toLocaleString()
+                };
+              } catch (error: any) {
+                result = {
+                  success: false,
+                  error: `Failed to send document: ${error.message}`,
+                  details: error.response?.body || error.message
+                };
+              }
+            }
+            break;
+          }
+
+          case 'send_poll': {
+            const { question, options, is_anonymous = true, type = 'regular', correct_option_id, explanation } = args || {};
+            
+            if (!question || !options || options.length < 2) {
+              result = {
+                success: false,
+                error: 'Question and at least 2 options are required for send_poll'
+              };
+            } else if (!bot) {
+              result = {
+                success: false,
+                error: 'Telegram Bot not initialized. Check bot token.'
+              };
+            } else {
+              try {
+                const pollOptions: any = {
+                  question,
+                  options,
+                  is_anonymous,
+                  type
+                };
+                
+                if (type === 'quiz' && correct_option_id !== undefined) {
+                  pollOptions.correct_option_id = correct_option_id;
+                  if (explanation) {
+                    pollOptions.explanation = explanation;
+                  }
+                }
+                
+                const response = await bot.sendPoll(CHANNEL_ID, question, options, pollOptions);
+                
+                result = {
+                  success: true,
+                  message: 'Poll sent to Telegram successfully!',
+                  message_id: response.message_id,
+                  poll: response.poll,
+                  channel: CHANNEL_ID,
+                  date: response.date,
+                  timestamp: new Date(response.date * 1000).toLocaleString()
+                };
+              } catch (error: any) {
+                result = {
+                  success: false,
+                  error: `Failed to send poll: ${error.message}`,
+                  details: error.response?.body || error.message
+                };
+              }
+            }
+            break;
+          }
+
+          case 'send_reaction': {
+            const { message_id, emoji } = args || {};
+            
+            if (!message_id || !emoji) {
+              result = {
+                success: false,
+                error: 'Message ID and emoji are required for send_reaction'
+              };
+            } else if (!bot) {
+              result = {
+                success: false,
+                error: 'Telegram Bot not initialized. Check bot token.'
+              };
+            } else {
+              try {
+                const response = await bot.setMessageReaction(CHANNEL_ID, message_id, emoji);
+                
+                result = {
+                  success: true,
+                  message: 'Reaction sent successfully!',
+                  message_id,
+                  emoji,
+                  channel: CHANNEL_ID
+                };
+              } catch (error: any) {
+                result = {
+                  success: false,
+                  error: `Failed to send reaction: ${error.message}`,
+                  details: error.response?.body || error.message
+                };
+              }
+            }
+            break;
+          }
+
+          case 'edit_message': {
+            const { message_id, text, parse_mode = 'HTML' } = args || {};
+            
+            if (!message_id || !text) {
+              result = {
+                success: false,
+                error: 'Message ID and text are required for edit_message'
+              };
+            } else if (!bot) {
+              result = {
+                success: false,
+                error: 'Telegram Bot not initialized. Check bot token.'
+              };
+            } else {
+              try {
+                const response = await bot.editMessageText(text, {
+                  chat_id: CHANNEL_ID,
+                  message_id,
+                  parse_mode: parse_mode as any,
+                });
+                
+                result = {
+                  success: true,
+                  message: 'Message edited successfully!',
+                  message_id,
+                  text: typeof response === 'object' && response ? response.text : text,
+                  channel: CHANNEL_ID
+                };
+              } catch (error: any) {
+                result = {
+                  success: false,
+                  error: `Failed to edit message: ${error.message}`,
+                  details: error.response?.body || error.message
+                };
+              }
+            }
+            break;
+          }
+
+          case 'delete_message': {
+            const { message_id } = args || {};
+            
+            if (!message_id) {
+              result = {
+                success: false,
+                error: 'Message ID is required for delete_message'
+              };
+            } else if (!bot) {
+              result = {
+                success: false,
+                error: 'Telegram Bot not initialized. Check bot token.'
+              };
+            } else {
+              try {
+                await bot.deleteMessage(CHANNEL_ID, message_id);
+                
+                result = {
+                  success: true,
+                  message: 'Message deleted successfully!',
+                  message_id,
+                  channel: CHANNEL_ID
+                };
+              } catch (error: any) {
+                result = {
+                  success: false,
+                  error: `Failed to delete message: ${error.message}`,
+                  details: error.response?.body || error.message
+                };
+              }
+            }
+            break;
+          }
+
+          case 'pin_message': {
+            const { message_id, disable_notification = false } = args || {};
+            
+            if (!message_id) {
+              result = {
+                success: false,
+                error: 'Message ID is required for pin_message'
+              };
+            } else if (!bot) {
+              result = {
+                success: false,
+                error: 'Telegram Bot not initialized. Check bot token.'
+              };
+            } else {
+              try {
+                await bot.pinChatMessage(CHANNEL_ID, message_id, { disable_notification });
+                
+                result = {
+                  success: true,
+                  message: 'Message pinned successfully!',
+                  message_id,
+                  channel: CHANNEL_ID
+                };
+              } catch (error: any) {
+                result = {
+                  success: false,
+                  error: `Failed to pin message: ${error.message}`,
+                  details: error.response?.body || error.message
+                };
+              }
+            }
+            break;
+          }
+
+          case 'unpin_message': {
+            const { message_id } = args || {};
+            
+            if (!bot) {
+              result = {
+                success: false,
+                error: 'Telegram Bot not initialized. Check bot token.'
+              };
+            } else {
+              try {
+                if (message_id) {
+                  await bot.unpinChatMessage(CHANNEL_ID, message_id);
+                  result = {
+                    success: true,
+                    message: 'Message unpinned successfully!',
+                    message_id,
+                    channel: CHANNEL_ID
+                  };
+                } else {
+                  await bot.unpinAllChatMessages(CHANNEL_ID);
+                  result = {
+                    success: true,
+                    message: 'All messages unpinned successfully!',
+                    channel: CHANNEL_ID
+                  };
+                }
+              } catch (error: any) {
+                result = {
+                  success: false,
+                  error: `Failed to unpin message: ${error.message}`,
+                  details: error.response?.body || error.message
+                };
+              }
+            }
+            break;
+          }
           
           case 'get_channel_info': {
             if (!bot) {
@@ -193,6 +754,38 @@ app.post('/', async (req, res) => {
                 result = {
                   success: false,
                   error: `Failed to get channel info: ${error.message}`,
+                  details: error.response?.body || error.message
+                };
+              }
+            }
+            break;
+          }
+
+          case 'get_channel_stats': {
+            if (!bot) {
+              result = {
+                success: false,
+                error: 'Telegram Bot not initialized. Check bot token.'
+              };
+            } else {
+              try {
+                const chat = await bot.getChat(CHANNEL_ID);
+                const memberCount = await bot.getChatMemberCount(CHANNEL_ID);
+                
+                result = {
+                  success: true,
+                  channel: CHANNEL_ID,
+                  title: chat.title,
+                  member_count: memberCount,
+                  type: chat.type,
+                  username: chat.username || 'No username',
+                  id: chat.id,
+                  timestamp: new Date().toLocaleString()
+                };
+              } catch (error: any) {
+                result = {
+                  success: false,
+                  error: `Failed to get channel stats: ${error.message}`,
                   details: error.response?.body || error.message
                 };
               }
@@ -290,26 +883,142 @@ app.get('/mcp/tools/list', (req, res) => {
         inputSchema: {
           type: 'object',
           properties: {
-            text: {
-              type: 'string',
-              description: 'Message text to send',
-            },
-            parse_mode: {
-              type: 'string',
-              enum: ['HTML', 'Markdown'],
-              description: 'Parse mode for the message (HTML or Markdown)',
-            },
+            text: { type: 'string', description: 'Message text to send' },
+            parse_mode: { type: 'string', enum: ['HTML', 'Markdown'], description: 'Parse mode for the message' }
           },
-          required: ['text'],
-        },
+          required: ['text']
+        }
+      },
+      {
+        name: 'send_photo',
+        description: 'Send a photo to the Telegram channel',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            photo: { type: 'string', description: 'Photo URL or file path' },
+            caption: { type: 'string', description: 'Photo caption' },
+            parse_mode: { type: 'string', enum: ['HTML', 'Markdown'], description: 'Parse mode for the caption' }
+          },
+          required: ['photo']
+        }
+      },
+      {
+        name: 'send_video',
+        description: 'Send a video to the Telegram channel',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            video: { type: 'string', description: 'Video URL or file path' },
+            caption: { type: 'string', description: 'Video caption' },
+            duration: { type: 'number', description: 'Video duration in seconds' },
+            width: { type: 'number', description: 'Video width' },
+            height: { type: 'number', description: 'Video height' }
+          },
+          required: ['video']
+        }
+      },
+      {
+        name: 'send_document',
+        description: 'Send a document to the Telegram channel',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            document: { type: 'string', description: 'Document URL or file path' },
+            caption: { type: 'string', description: 'Document caption' },
+            filename: { type: 'string', description: 'Custom filename for the document' }
+          },
+          required: ['document']
+        }
+      },
+      {
+        name: 'send_poll',
+        description: 'Send a poll to the Telegram channel',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            question: { type: 'string', description: 'Poll question' },
+            options: { type: 'array', items: { type: 'string' }, description: 'Poll options (2-10 options)' },
+            is_anonymous: { type: 'boolean', description: 'Whether the poll is anonymous' },
+            type: { type: 'string', enum: ['quiz', 'regular'], description: 'Poll type' },
+            correct_option_id: { type: 'number', description: 'Correct option ID for quiz polls' },
+            explanation: { type: 'string', description: 'Explanation for quiz polls' }
+          },
+          required: ['question', 'options']
+        }
+      },
+      {
+        name: 'send_reaction',
+        description: 'Send a reaction to a message',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            message_id: { type: 'number', description: 'Message ID to react to' },
+            emoji: { type: 'string', description: 'Emoji to react with' }
+          },
+          required: ['message_id', 'emoji']
+        }
+      },
+      {
+        name: 'edit_message',
+        description: 'Edit a message in the Telegram channel',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            message_id: { type: 'number', description: 'Message ID to edit' },
+            text: { type: 'string', description: 'New message text' },
+            parse_mode: { type: 'string', enum: ['HTML', 'Markdown'], description: 'Parse mode for the message' }
+          },
+          required: ['message_id', 'text']
+        }
+      },
+      {
+        name: 'delete_message',
+        description: 'Delete a message from the Telegram channel',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            message_id: { type: 'number', description: 'Message ID to delete' }
+          },
+          required: ['message_id']
+        }
+      },
+      {
+        name: 'pin_message',
+        description: 'Pin a message in the Telegram channel',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            message_id: { type: 'number', description: 'Message ID to pin' },
+            disable_notification: { type: 'boolean', description: 'Whether to disable notification for pinned message' }
+          },
+          required: ['message_id']
+        }
+      },
+      {
+        name: 'unpin_message',
+        description: 'Unpin a message in the Telegram channel',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            message_id: { type: 'number', description: 'Message ID to unpin (optional, unpins all if not specified)' }
+          }
+        }
       },
       {
         name: 'get_channel_info',
         description: 'Get information about the Telegram channel',
         inputSchema: {
           type: 'object',
-          properties: {},
-        },
+          properties: {}
+        }
+      },
+      {
+        name: 'get_channel_stats',
+        description: 'Get channel statistics and member count',
+        inputSchema: {
+          type: 'object',
+          properties: {}
+        }
       }
     ]
   });
