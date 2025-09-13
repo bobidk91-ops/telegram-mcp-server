@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 
-import { McpServer } from '@modelcontextprotocol/sdk/server/index.js';
+import { Server } from '@modelcontextprotocol/sdk/server/index.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import {
   CallToolRequestSchema,
@@ -17,7 +17,7 @@ const bot = new TelegramBot(process.env.TELEGRAM_BOT_TOKEN || '', { polling: fal
 const CHANNEL_ID = process.env.TELEGRAM_CHANNEL_ID || '@mymcptest';
 
 // Create MCP Server
-const server = new McpServer(
+const server = new Server(
   {
     name: 'telegram-mcp-server',
     version: '1.0.0',
@@ -176,7 +176,7 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
 });
 
 // Handle tool calls
-server.setRequestHandler(CallToolRequestSchema, async (request) => {
+server.setRequestHandler(CallToolRequestSchema, async (request: any) => {
   const { name, arguments: args } = request.params;
 
   try {
@@ -234,7 +234,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         };
 
       case 'send_reaction':
-        await bot.setMessageReaction(CHANNEL_ID, args.message_id, [{ type: 'emoji', emoji: args.emoji }]);
+        await bot.setMessageReaction(CHANNEL_ID, args.message_id, [{ type: 'emoji', emoji: args.emoji }] as any);
         return {
           content: [
             {
