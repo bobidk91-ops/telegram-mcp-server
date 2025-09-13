@@ -1,1 +1,1 @@
-web: npm run start:make-mcp
+web: npm run start:http-make-mcp

@@ -11,30 +11,40 @@
     "start:stdio": "node dist/stdio-mcp-server.js",
     "start:make": "node dist/make-api-server.js",
     "start:make-mcp": "node dist/make-mcp-server.js",
+    "start:http-make-mcp": "node dist/http-make-mcp-server.js",
     "dev": "ts-node --esm src/server.ts",
     "dev:mcp": "ts-node --esm src/http-mcp-server.ts",
     "dev:stdio": "ts-node --esm src/stdio-mcp-server.ts",
     "dev:make": "ts-node --esm src/make-api-server.ts",
     "dev:make-mcp": "ts-node --esm src/make-mcp-server.ts",
+    "dev:http-make-mcp": "ts-node --esm src/http-make-mcp-server.ts",
     "watch": "tsc --watch"
   },
-  "keywords": ["mcp", "telegram", "bot", "blogging", "api"],
+  "keywords": [
+    "mcp",
+    "telegram",
+    "bot",
+    "blogging",
+    "api"
+  ],
   "author": "Your Name",
   "license": "MIT",
   "dependencies": {
     "@modelcontextprotocol/sdk": "^0.5.0",
-    "node-telegram-bot-api": "^0.66.0",
+    "@types/cors": "^2.8.19",
+    "cors": "^2.8.5",
     "dotenv": "^16.3.1",
     "express": "^4.18.2",
+    "node-telegram-bot-api": "^0.66.0",
     "ws": "^8.14.2"
   },
   "devDependencies": {
+    "@types/express": "^4.17.21",
     "@types/node": "^20.10.0",
     "@types/node-telegram-bot-api": "^0.64.0",
-    "@types/express": "^4.17.21",
     "@types/ws": "^8.5.10",
-    "typescript": "^5.3.0",
-    "ts-node": "^10.9.0"
+    "ts-node": "^10.9.0",
+    "typescript": "^5.3.0"
   },
   "engines": {
     "node": ">=18.0.0"
