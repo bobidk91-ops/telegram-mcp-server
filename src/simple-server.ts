@@ -8,19 +8,21 @@ app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 app.use(cors());
 
-// Get environment variables
-const TELEGRAM_BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
-const CHANNEL_ID = process.env.TELEGRAM_CHANNEL_ID;
+// Get environment variables with fallback defaults for Railway
+const TELEGRAM_BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN || '8198346055:AAG01qXWGBwP4qzDlkZztPwshDdYw_DLFN0';
+const CHANNEL_ID = process.env.TELEGRAM_CHANNEL_ID || '@mymcptest';
 
-// Check if required environment variables are set
-if (!TELEGRAM_BOT_TOKEN) {
-  console.error('❌ TELEGRAM_BOT_TOKEN environment variable is required!');
-  process.exit(1);
+// Log environment status
+if (process.env.TELEGRAM_BOT_TOKEN) {
+  console.log('🔧 Using TELEGRAM_BOT_TOKEN from environment variables');
+} else {
+  console.log('⚠️  Using default TELEGRAM_BOT_TOKEN (consider setting environment variable)');
 }
 
-if (!CHANNEL_ID) {
-  console.error('❌ TELEGRAM_CHANNEL_ID environment variable is required!');
-  process.exit(1);
+if (process.env.TELEGRAM_CHANNEL_ID) {
+  console.log('🔧 Using TELEGRAM_CHANNEL_ID from environment variables');
+} else {
+  console.log('⚠️  Using default TELEGRAM_CHANNEL_ID (consider setting environment variable)');
 }
 
 console.log('🔧 Environment variables:');
