@@ -14,6 +14,7 @@ const CHANNEL_ID = process.env.TELEGRAM_CHANNEL_ID || '@mymcptest';
 const PEXELS_API_KEY = process.env.PEXELS_API_KEY || 'j0CGX7JRiZOmEz1bEYvxZeRn1cS7qdFy5351PmDtZ01Wnby18AIeWt32';
 const YANDEX_CLIENT_ID = process.env.YANDEX_CLIENT_ID || '11221f6ebd2d47649d42d9f4b282a876';
 const YANDEX_CLIENT_SECRET = process.env.YANDEX_CLIENT_SECRET || 'eb793370893544d683bf277d14bfd842';
+const YANDEX_LOGIN = process.env.YANDEX_LOGIN || 'bobi-dk91';
 let YANDEX_OAUTH_TOKEN = process.env.YANDEX_OAUTH_TOKEN || '';
 
 // Log environment status
@@ -77,25 +78,36 @@ async function yandexWordstatRequest(method: string, params: any = {}) {
     throw new Error('Yandex OAuth token not set. Please authorize first using /yandex/auth endpoint');
   }
 
+  const requestBody = {
+    method: method,
+    params: {
+      ...params,
+      FieldNames: params.FieldNames || ['Keyword', 'Shows', 'Clicks', 'Ctr']
+    }
+  };
+
   const response = await fetch('https://api.direct.yandex.com/json/v5/keywordsresearch', {
     method: 'POST',
     headers: {
       'Authorization': `Bearer ${YANDEX_OAUTH_TOKEN}`,
+      'Client-Login': YANDEX_LOGIN,
       'Content-Type': 'application/json',
       'Accept-Language': 'ru'
     },
-    body: JSON.stringify({
-      method: method,
-      params: params
-    })
+    body: JSON.stringify(requestBody)
   });
 
+  const responseText = await response.text();
+  
   if (!response.ok) {
-    const errorText = await response.text();
-    throw new Error(`Yandex API error: ${response.statusText} - ${errorText}`);
+    throw new Error(`Yandex API error (${response.status}): ${responseText}`);
   }
 
-  return await response.json();
+  try {
+    return JSON.parse(responseText);
+  } catch (e) {
+    throw new Error(`Failed to parse Yandex API response: ${responseText}`);
+  }
 }
 
 // OAuth helper to exchange code for token
