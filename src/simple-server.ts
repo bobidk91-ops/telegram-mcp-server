@@ -1796,9 +1796,25 @@ app.post('/yandex/set-token', (req, res) => {
 app.get('/yandex/status', (req, res) => {
   res.json({
     client_id: YANDEX_CLIENT_ID,
+    login: YANDEX_LOGIN,
     token_set: !!YANDEX_OAUTH_TOKEN,
+    token_preview: YANDEX_OAUTH_TOKEN ? `${YANDEX_OAUTH_TOKEN.substring(0, 20)}...` : 'Not set',
     auth_url: `https://oauth.yandex.ru/authorize?response_type=code&client_id=${YANDEX_CLIENT_ID}`,
     callback_url: `${req.protocol}://${req.get('host')}/yandex/callback`
+  });
+});
+
+app.get('/yandex/get-token', (req, res) => {
+  if (!YANDEX_OAUTH_TOKEN) {
+    return res.json({
+      error: 'Token not set',
+      message: 'Please authorize first'
+    });
+  }
+  
+  res.json({
+    token: YANDEX_OAUTH_TOKEN,
+    note: 'Save this as YANDEX_OAUTH_TOKEN environment variable in Railway'
   });
 });
 
