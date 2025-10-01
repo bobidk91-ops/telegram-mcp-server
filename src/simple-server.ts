@@ -128,9 +128,9 @@ async function getYandexOAuthToken(code: string) {
 app.get('/', (req, res) => {
   res.json({
     name: 'telegram-mcp-server',
-    version: '2.1.0',
+    version: '2.2.0',
     status: 'running',
-    description: 'Telegram MCP Server v2.1.0 with Pexels API - HTTP API for ChatGPT and Make.com',
+    description: 'Telegram MCP Server v2.2.0 with Pexels & Yandex Wordstat - HTTP API for ChatGPT and Make.com',
     environment: {
       TELEGRAM_BOT_TOKEN: TELEGRAM_BOT_TOKEN ? 'SET' : 'NOT SET',
       TELEGRAM_CHANNEL_ID: CHANNEL_ID,
@@ -417,7 +417,7 @@ app.post('/', async (req, res) => {
             },
             serverInfo: {
               name: 'telegram-mcp-server',
-              version: '2.1.0'
+              version: '2.2.0'
             }
           }
         });
@@ -775,6 +775,64 @@ app.post('/', async (req, res) => {
                       description: 'Page number (default: 1)',
                     },
                   },
+                },
+              },
+              {
+                name: 'yandex_wordstat_search',
+                description: 'Search Yandex Wordstat for keyword statistics',
+                inputSchema: {
+                  type: 'object',
+                  properties: {
+                    phrases: {
+                      type: 'array',
+                      items: { type: 'string' },
+                      description: 'Keywords to search (1-10 phrases)',
+                    },
+                    geo_ids: {
+                      type: 'array',
+                      items: { type: 'number' },
+                      description: 'Geo IDs (225=Russia, 213=Moscow, 2=SPb)',
+                    },
+                  },
+                  required: ['phrases'],
+                },
+              },
+              {
+                name: 'yandex_wordstat_keywords',
+                description: 'Get keyword suggestions from Yandex Wordstat',
+                inputSchema: {
+                  type: 'object',
+                  properties: {
+                    phrase: {
+                      type: 'string',
+                      description: 'Base keyword for suggestions',
+                    },
+                    geo_ids: {
+                      type: 'array',
+                      items: { type: 'number' },
+                      description: 'Geo IDs (default: [225] Russia)',
+                    },
+                  },
+                  required: ['phrase'],
+                },
+              },
+              {
+                name: 'yandex_wordstat_related',
+                description: 'Get related search queries from Yandex Wordstat',
+                inputSchema: {
+                  type: 'object',
+                  properties: {
+                    phrase: {
+                      type: 'string',
+                      description: 'Base keyword for related queries',
+                    },
+                    geo_ids: {
+                      type: 'array',
+                      items: { type: 'number' },
+                      description: 'Geo IDs (default: [225] Russia)',
+                    },
+                  },
+                  required: ['phrase'],
                 },
               }
             ]
@@ -1476,6 +1534,106 @@ app.post('/', async (req, res) => {
             }
             break;
           }
+
+          case 'yandex_wordstat_search': {
+            const { phrases, geo_ids = [225] } = args || {};
+            
+            if (!phrases || !Array.isArray(phrases) || phrases.length === 0) {
+              result = {
+                success: false,
+                error: 'Phrases array is required for yandex_wordstat_search (1-10 phrases)'
+              };
+            } else {
+              try {
+                const response = await yandexWordstatRequest('get', {
+                  Phrases: phrases,
+                  GeoIds: geo_ids
+                });
+                
+                result = {
+                  success: true,
+                  data: response.result,
+                  phrases: phrases,
+                  geo_ids: geo_ids,
+                  note: 'Wordstat data for specified phrases and regions'
+                };
+              } catch (error: any) {
+                result = {
+                  success: false,
+                  error: `Failed to get Wordstat data: ${error.message}`
+                };
+              }
+            }
+            break;
+          }
+
+          case 'yandex_wordstat_keywords': {
+            const { phrase, geo_ids = [225] } = args || {};
+            
+            if (!phrase) {
+              result = {
+                success: false,
+                error: 'Phrase is required for yandex_wordstat_keywords'
+              };
+            } else {
+              try {
+                const response = await yandexWordstatRequest('get', {
+                  Phrases: [phrase],
+                  GeoIds: geo_ids
+                });
+                
+                result = {
+                  success: true,
+                  phrase: phrase,
+                  geo_ids: geo_ids,
+                  keywords: response.result,
+                  note: 'Keyword suggestions based on Wordstat data'
+                };
+              } catch (error: any) {
+                result = {
+                  success: false,
+                  error: `Failed to get keywords: ${error.message}`
+                };
+              }
+            }
+            break;
+          }
+
+          case 'yandex_wordstat_related': {
+            const { phrase, geo_ids = [225] } = args || {};
+            
+            if (!phrase) {
+              result = {
+                success: false,
+                error: 'Phrase is required for yandex_wordstat_related'
+              };
+            } else {
+              try {
+                const response = await yandexWordstatRequest('get', {
+                  Phrases: [phrase],
+                  GeoIds: geo_ids
+                });
+                
+                // Extract related queries from response
+                const relatedQueries = response.result?.SearchedWith || [];
+                
+                result = {
+                  success: true,
+                  phrase: phrase,
+                  geo_ids: geo_ids,
+                  related_queries: relatedQueries,
+                  count: relatedQueries.length,
+                  note: 'Related search queries from Yandex Wordstat'
+                };
+              } catch (error: any) {
+                result = {
+                  success: false,
+                  error: `Failed to get related queries: ${error.message}`
+                };
+              }
+            }
+            break;
+          }
           
           default:
             result = {
@@ -1553,7 +1711,7 @@ app.get('/health', async (req, res) => {
     bot_token_set: !!TELEGRAM_BOT_TOKEN,
     bot_connected: bot_connected,
     bot_username: bot_username,
-    version: '2.1.0',
+    version: '2.2.0',
     mcp_server: true,
     pexels_enabled: !!PEXELS_API_KEY,
     yandex_oauth: !!YANDEX_OAUTH_TOKEN,
@@ -1882,7 +2040,7 @@ async function main() {
     const port = process.env.PORT || 8080;
     
     app.listen(port, () => {
-      console.log('🚀 Telegram MCP Server v2.1.0 with Pexels API running on port', port);
+      console.log('🚀 Telegram MCP Server v2.2.0 with Pexels & Yandex Wordstat running on port', port);
       console.log(`🌐 API URL: http://localhost:${port}`);
       console.log(`📖 MCP Info: http://localhost:${port}/mcp`);
       console.log(`🔧 Tools: http://localhost:${port}/mcp/tools/list`);
