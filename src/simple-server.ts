@@ -1735,12 +1735,14 @@ app.get('/health', async (req, res) => {
 
 // Yandex OAuth endpoints
 app.get('/yandex/auth', (req, res) => {
-  const authUrl = `https://oauth.yandex.ru/authorize?response_type=code&client_id=${YANDEX_CLIENT_ID}`;
+  const redirectUri = `${req.protocol}://${req.get('host')}/yandex/callback`;
+  const authUrl = `https://oauth.yandex.ru/authorize?response_type=code&client_id=${YANDEX_CLIENT_ID}&redirect_uri=${encodeURIComponent(redirectUri)}&scope=direct:api`;
   res.json({
-    message: 'Yandex OAuth Authorization',
+    message: 'Yandex OAuth Authorization with Direct API scope',
     instructions: 'Open this URL in browser to authorize',
     auth_url: authUrl,
-    callback_url: `${req.protocol}://${req.get('host')}/yandex/callback`,
+    callback_url: redirectUri,
+    scope: 'direct:api',
     note: 'After authorization, you will be redirected to callback URL with code'
   });
 });
@@ -1794,13 +1796,15 @@ app.post('/yandex/set-token', (req, res) => {
 });
 
 app.get('/yandex/status', (req, res) => {
+  const redirectUri = `${req.protocol}://${req.get('host')}/yandex/callback`;
   res.json({
     client_id: YANDEX_CLIENT_ID,
     login: YANDEX_LOGIN,
     token_set: !!YANDEX_OAUTH_TOKEN,
     token_preview: YANDEX_OAUTH_TOKEN ? `${YANDEX_OAUTH_TOKEN.substring(0, 20)}...` : 'Not set',
-    auth_url: `https://oauth.yandex.ru/authorize?response_type=code&client_id=${YANDEX_CLIENT_ID}`,
-    callback_url: `${req.protocol}://${req.get('host')}/yandex/callback`
+    auth_url: `https://oauth.yandex.ru/authorize?response_type=code&client_id=${YANDEX_CLIENT_ID}&redirect_uri=${encodeURIComponent(redirectUri)}&scope=direct:api`,
+    callback_url: redirectUri,
+    scope: 'direct:api'
   });
 });
 
