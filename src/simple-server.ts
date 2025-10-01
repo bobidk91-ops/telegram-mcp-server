@@ -80,10 +80,7 @@ async function yandexWordstatRequest(method: string, params: any = {}) {
 
   const requestBody = {
     method: method,
-    params: {
-      ...params,
-      FieldNames: params.FieldNames || ['Keyword', 'Shows', 'Clicks', 'Ctr']
-    }
+    params: params
   };
 
   const response = await fetch('https://api.direct.yandex.com/json/v5/keywordsresearch', {
@@ -92,7 +89,9 @@ async function yandexWordstatRequest(method: string, params: any = {}) {
       'Authorization': `Bearer ${YANDEX_OAUTH_TOKEN}`,
       'Client-Login': YANDEX_LOGIN,
       'Content-Type': 'application/json',
-      'Accept-Language': 'ru'
+      'Accept-Language': 'ru',
+      'skipReportHeader': 'true',
+      'skipColumnHeader': 'true'
     },
     body: JSON.stringify(requestBody)
   });
@@ -1558,15 +1557,19 @@ app.post('/', async (req, res) => {
             } else {
               try {
                 const response = await yandexWordstatRequest('get', {
+                  SelectionCriteria: {
+                    GeoIds: geo_ids
+                  },
                   Phrases: phrases,
-                  GeoIds: geo_ids
+                  FieldNames: ['Keyword', 'Shows']
                 });
                 
                 result = {
                   success: true,
-                  data: response.result,
+                  data: response.result || response,
                   phrases: phrases,
                   geo_ids: geo_ids,
+                  full_api_response: response,
                   note: 'Wordstat data for specified phrases and regions'
                 };
               } catch (error: any) {
@@ -1590,8 +1593,11 @@ app.post('/', async (req, res) => {
             } else {
               try {
                 const response = await yandexWordstatRequest('get', {
+                  SelectionCriteria: {
+                    GeoIds: geo_ids
+                  },
                   Phrases: [phrase],
-                  GeoIds: geo_ids
+                  FieldNames: ['Keyword', 'Shows']
                 });
                 
                 result = {
@@ -1599,7 +1605,7 @@ app.post('/', async (req, res) => {
                   phrase: phrase,
                   geo_ids: geo_ids,
                   full_response: response,
-                  keywords: response.result,
+                  keywords: response.result || response,
                   note: 'Keyword suggestions based on Wordstat data'
                 };
               } catch (error: any) {
@@ -1624,8 +1630,11 @@ app.post('/', async (req, res) => {
             } else {
               try {
                 const response = await yandexWordstatRequest('get', {
+                  SelectionCriteria: {
+                    GeoIds: geo_ids
+                  },
                   Phrases: [phrase],
-                  GeoIds: geo_ids
+                  FieldNames: ['Keyword', 'Shows']
                 });
                 
                 // Extract related queries from response
@@ -1635,6 +1644,7 @@ app.post('/', async (req, res) => {
                   success: true,
                   phrase: phrase,
                   geo_ids: geo_ids,
+                  full_response: response,
                   related_queries: relatedQueries,
                   count: relatedQueries.length,
                   note: 'Related search queries from Yandex Wordstat'
