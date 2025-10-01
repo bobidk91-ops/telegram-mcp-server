@@ -12,6 +12,9 @@ app.use(cors());
 const TELEGRAM_BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN || '8198346055:AAG01qXWGBwP4qzDlkZztPwshDdYw_DLFN0';
 const CHANNEL_ID = process.env.TELEGRAM_CHANNEL_ID || '@mymcptest';
 const PEXELS_API_KEY = process.env.PEXELS_API_KEY || 'j0CGX7JRiZOmEz1bEYvxZeRn1cS7qdFy5351PmDtZ01Wnby18AIeWt32';
+const YANDEX_CLIENT_ID = process.env.YANDEX_CLIENT_ID || '11221f6ebd2d47649d42d9f4b282a876';
+const YANDEX_CLIENT_SECRET = process.env.YANDEX_CLIENT_SECRET || 'eb793370893544d683bf277d14bfd842';
+let YANDEX_OAUTH_TOKEN = process.env.YANDEX_OAUTH_TOKEN || '';
 
 // Log environment status
 if (process.env.TELEGRAM_BOT_TOKEN) {
@@ -30,6 +33,8 @@ console.log('🔧 Environment variables:');
 console.log('TELEGRAM_BOT_TOKEN:', TELEGRAM_BOT_TOKEN ? 'SET' : 'NOT SET');
 console.log('TELEGRAM_CHANNEL_ID:', CHANNEL_ID);
 console.log('PEXELS_API_KEY:', PEXELS_API_KEY ? 'SET' : 'NOT SET');
+console.log('YANDEX_CLIENT_ID:', YANDEX_CLIENT_ID ? 'SET' : 'NOT SET');
+console.log('YANDEX_OAUTH_TOKEN:', YANDEX_OAUTH_TOKEN ? 'SET' : 'NOT SET');
 
 // Initialize Telegram Bot
 let bot;
@@ -64,6 +69,59 @@ async function pexelsRequest(endpoint: string, params: any = {}) {
   }
 
   return await response.json();
+}
+
+// Yandex Wordstat API helper functions
+async function yandexWordstatRequest(method: string, params: any = {}) {
+  if (!YANDEX_OAUTH_TOKEN) {
+    throw new Error('Yandex OAuth token not set. Please authorize first using /yandex/auth endpoint');
+  }
+
+  const response = await fetch('https://api.direct.yandex.com/json/v5/keywordsresearch', {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${YANDEX_OAUTH_TOKEN}`,
+      'Content-Type': 'application/json',
+      'Accept-Language': 'ru'
+    },
+    body: JSON.stringify({
+      method: method,
+      params: params
+    })
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(`Yandex API error: ${response.statusText} - ${errorText}`);
+  }
+
+  return await response.json();
+}
+
+// OAuth helper to exchange code for token
+async function getYandexOAuthToken(code: string) {
+  const params = new URLSearchParams({
+    grant_type: 'authorization_code',
+    code: code,
+    client_id: YANDEX_CLIENT_ID,
+    client_secret: YANDEX_CLIENT_SECRET
+  });
+
+  const response = await fetch('https://oauth.yandex.ru/token', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/x-www-form-urlencoded'
+    },
+    body: params.toString()
+  });
+
+  if (!response.ok) {
+    throw new Error(`OAuth error: ${response.statusText}`);
+  }
+
+  const data = await response.json();
+  YANDEX_OAUTH_TOKEN = data.access_token;
+  return data;
 }
 
 // Root endpoint - GET
@@ -1498,7 +1556,77 @@ app.get('/health', async (req, res) => {
     version: '2.1.0',
     mcp_server: true,
     pexels_enabled: !!PEXELS_API_KEY,
+    yandex_oauth: !!YANDEX_OAUTH_TOKEN,
     environment: process.env.NODE_ENV || 'development'
+  });
+});
+
+// Yandex OAuth endpoints
+app.get('/yandex/auth', (req, res) => {
+  const authUrl = `https://oauth.yandex.ru/authorize?response_type=code&client_id=${YANDEX_CLIENT_ID}`;
+  res.json({
+    message: 'Yandex OAuth Authorization',
+    instructions: 'Open this URL in browser to authorize',
+    auth_url: authUrl,
+    callback_url: `${req.protocol}://${req.get('host')}/yandex/callback`,
+    note: 'After authorization, you will be redirected to callback URL with code'
+  });
+});
+
+app.get('/yandex/callback', async (req, res) => {
+  const code = req.query.code as string;
+  
+  if (!code) {
+    return res.status(400).json({
+      error: 'Authorization code is required',
+      message: 'No code provided in callback'
+    });
+  }
+
+  try {
+    const tokenData = await getYandexOAuthToken(code);
+    
+    res.json({
+      success: true,
+      message: 'Yandex OAuth token obtained successfully!',
+      token_type: tokenData.token_type,
+      expires_in: tokenData.expires_in,
+      note: 'Token has been saved. You can now use Yandex Wordstat tools!'
+    });
+  } catch (error: any) {
+    res.status(500).json({
+      success: false,
+      error: error.message,
+      note: 'Failed to exchange code for token'
+    });
+  }
+});
+
+app.post('/yandex/set-token', (req, res) => {
+  const { token } = req.body;
+  
+  if (!token) {
+    return res.status(400).json({
+      error: 'Token is required',
+      usage: 'POST /yandex/set-token with body: { "token": "your_token" }'
+    });
+  }
+
+  YANDEX_OAUTH_TOKEN = token;
+  
+  res.json({
+    success: true,
+    message: 'Yandex OAuth token set successfully!',
+    note: 'You can now use Yandex Wordstat tools'
+  });
+});
+
+app.get('/yandex/status', (req, res) => {
+  res.json({
+    client_id: YANDEX_CLIENT_ID,
+    token_set: !!YANDEX_OAUTH_TOKEN,
+    auth_url: `https://oauth.yandex.ru/authorize?response_type=code&client_id=${YANDEX_CLIENT_ID}`,
+    callback_url: `${req.protocol}://${req.get('host')}/yandex/callback`
   });
 });
 
