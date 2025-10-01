@@ -1586,13 +1586,15 @@ app.post('/', async (req, res) => {
                   success: true,
                   phrase: phrase,
                   geo_ids: geo_ids,
+                  full_response: response,
                   keywords: response.result,
                   note: 'Keyword suggestions based on Wordstat data'
                 };
               } catch (error: any) {
                 result = {
                   success: false,
-                  error: `Failed to get keywords: ${error.message}`
+                  error: `Failed to get keywords: ${error.message}`,
+                  details: error.stack
                 };
               }
             }
