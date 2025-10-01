@@ -11,6 +11,7 @@ app.use(cors());
 // Get environment variables with fallback defaults for Railway
 const TELEGRAM_BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN || '8198346055:AAG01qXWGBwP4qzDlkZztPwshDdYw_DLFN0';
 const CHANNEL_ID = process.env.TELEGRAM_CHANNEL_ID || '@mymcptest';
+const PEXELS_API_KEY = process.env.PEXELS_API_KEY || 'j0CGX7JRiZOmEz1bEYvxZeRn1cS7qdFy5351PmDtZ01Wnby18AIeWt32';
 
 // Log environment status
 if (process.env.TELEGRAM_BOT_TOKEN) {
@@ -28,6 +29,7 @@ if (process.env.TELEGRAM_CHANNEL_ID) {
 console.log('🔧 Environment variables:');
 console.log('TELEGRAM_BOT_TOKEN:', TELEGRAM_BOT_TOKEN ? 'SET' : 'NOT SET');
 console.log('TELEGRAM_CHANNEL_ID:', CHANNEL_ID);
+console.log('PEXELS_API_KEY:', PEXELS_API_KEY ? 'SET' : 'NOT SET');
 
 // Initialize Telegram Bot
 let bot;
@@ -41,13 +43,36 @@ try {
   bot = null;
 }
 
+// Pexels API helper functions
+async function pexelsRequest(endpoint: string, params: any = {}) {
+  const url = new URL(`https://api.pexels.com/v1${endpoint}`);
+  Object.keys(params).forEach(key => {
+    if (params[key] !== undefined && params[key] !== null) {
+      url.searchParams.append(key, params[key].toString());
+    }
+  });
+
+  const response = await fetch(url.toString(), {
+    headers: {
+      'Authorization': PEXELS_API_KEY,
+      'User-Agent': 'Telegram-MCP-Server/2.1.0'
+    }
+  });
+
+  if (!response.ok) {
+    throw new Error(`Pexels API error: ${response.statusText}`);
+  }
+
+  return await response.json();
+}
+
 // Root endpoint - GET
 app.get('/', (req, res) => {
   res.json({
     name: 'telegram-mcp-server',
-    version: '2.0.0',
+    version: '2.1.0',
     status: 'running',
-    description: 'Telegram MCP Server v2.0.0 - HTTP API for ChatGPT and Make.com',
+    description: 'Telegram MCP Server v2.1.0 with Pexels API - HTTP API for ChatGPT and Make.com',
     environment: {
       TELEGRAM_BOT_TOKEN: TELEGRAM_BOT_TOKEN ? 'SET' : 'NOT SET',
       TELEGRAM_CHANNEL_ID: CHANNEL_ID,
@@ -334,7 +359,7 @@ app.post('/', async (req, res) => {
             },
             serverInfo: {
               name: 'telegram-mcp-server',
-              version: '2.0.0'
+              version: '2.1.0'
             }
           }
         });
@@ -576,6 +601,122 @@ app.post('/', async (req, res) => {
                 inputSchema: {
                   type: 'object',
                   properties: {},
+                },
+              },
+              {
+                name: 'pexels_search_photos',
+                description: 'Search for photos on Pexels by query',
+                inputSchema: {
+                  type: 'object',
+                  properties: {
+                    query: {
+                      type: 'string',
+                      description: 'Search query (e.g., "nature", "cats", "city")',
+                    },
+                    per_page: {
+                      type: 'number',
+                      description: 'Number of results per page (1-80, default: 15)',
+                    },
+                    page: {
+                      type: 'number',
+                      description: 'Page number (default: 1)',
+                    },
+                    orientation: {
+                      type: 'string',
+                      enum: ['landscape', 'portrait', 'square'],
+                      description: 'Photo orientation filter',
+                    },
+                    size: {
+                      type: 'string',
+                      enum: ['large', 'medium', 'small'],
+                      description: 'Minimum photo size',
+                    },
+                    color: {
+                      type: 'string',
+                      description: 'Desired photo color (e.g., "red", "blue", "#FF0000")',
+                    },
+                  },
+                  required: ['query'],
+                },
+              },
+              {
+                name: 'pexels_get_photo',
+                description: 'Get a specific photo by ID from Pexels',
+                inputSchema: {
+                  type: 'object',
+                  properties: {
+                    id: {
+                      type: 'number',
+                      description: 'Photo ID from Pexels',
+                    },
+                  },
+                  required: ['id'],
+                },
+              },
+              {
+                name: 'pexels_curated_photos',
+                description: 'Get curated photos from Pexels',
+                inputSchema: {
+                  type: 'object',
+                  properties: {
+                    per_page: {
+                      type: 'number',
+                      description: 'Number of results per page (1-80, default: 15)',
+                    },
+                    page: {
+                      type: 'number',
+                      description: 'Page number (default: 1)',
+                    },
+                  },
+                },
+              },
+              {
+                name: 'pexels_search_videos',
+                description: 'Search for videos on Pexels by query',
+                inputSchema: {
+                  type: 'object',
+                  properties: {
+                    query: {
+                      type: 'string',
+                      description: 'Search query (e.g., "nature", "ocean", "city")',
+                    },
+                    per_page: {
+                      type: 'number',
+                      description: 'Number of results per page (1-80, default: 15)',
+                    },
+                    page: {
+                      type: 'number',
+                      description: 'Page number (default: 1)',
+                    },
+                    orientation: {
+                      type: 'string',
+                      enum: ['landscape', 'portrait', 'square'],
+                      description: 'Video orientation filter',
+                    },
+                    size: {
+                      type: 'string',
+                      enum: ['large', 'medium', 'small'],
+                      description: 'Minimum video size',
+                    },
+                  },
+                  required: ['query'],
+                },
+              },
+              {
+                name: 'pexels_popular_videos',
+                description: 'Get popular videos from Pexels',
+                inputSchema: {
+                  type: 'object',
+                  properties: {
+                    per_page: {
+                      type: 'number',
+                      description: 'Number of results per page (1-80, default: 15)',
+                    },
+                    page: {
+                      type: 'number',
+                      description: 'Page number (default: 1)',
+                    },
+                  },
                 },
               }
             ]
@@ -1061,6 +1202,222 @@ app.post('/', async (req, res) => {
             }
             break;
           }
+
+          case 'pexels_search_photos': {
+            const { query, per_page = 15, page = 1, orientation, size, color } = args || {};
+            
+            if (!query) {
+              result = {
+                success: false,
+                error: 'Query is required for pexels_search_photos'
+              };
+            } else {
+              try {
+                const params: any = { query, per_page, page };
+                if (orientation) params.orientation = orientation;
+                if (size) params.size = size;
+                if (color) params.color = color;
+                
+                const data = await pexelsRequest('/search', params);
+                
+                result = {
+                  success: true,
+                  total_results: data.total_results,
+                  page: data.page,
+                  per_page: data.per_page,
+                  photos: data.photos.map((photo: any) => ({
+                    id: photo.id,
+                    width: photo.width,
+                    height: photo.height,
+                    url: photo.url,
+                    photographer: photo.photographer,
+                    photographer_url: photo.photographer_url,
+                    src: {
+                      original: photo.src.original,
+                      large: photo.src.large,
+                      medium: photo.src.medium,
+                      small: photo.src.small,
+                      tiny: photo.src.tiny
+                    },
+                    alt: photo.alt
+                  }))
+                };
+              } catch (error: any) {
+                result = {
+                  success: false,
+                  error: `Failed to search photos: ${error.message}`
+                };
+              }
+            }
+            break;
+          }
+
+          case 'pexels_get_photo': {
+            const { id } = args || {};
+            
+            if (!id) {
+              result = {
+                success: false,
+                error: 'Photo ID is required for pexels_get_photo'
+              };
+            } else {
+              try {
+                const photo = await pexelsRequest(`/photos/${id}`);
+                
+                result = {
+                  success: true,
+                  photo: {
+                    id: photo.id,
+                    width: photo.width,
+                    height: photo.height,
+                    url: photo.url,
+                    photographer: photo.photographer,
+                    photographer_url: photo.photographer_url,
+                    src: {
+                      original: photo.src.original,
+                      large: photo.src.large,
+                      medium: photo.src.medium,
+                      small: photo.src.small,
+                      tiny: photo.src.tiny
+                    },
+                    alt: photo.alt
+                  }
+                };
+              } catch (error: any) {
+                result = {
+                  success: false,
+                  error: `Failed to get photo: ${error.message}`
+                };
+              }
+            }
+            break;
+          }
+
+          case 'pexels_curated_photos': {
+            const { per_page = 15, page = 1 } = args || {};
+            
+            try {
+              const data = await pexelsRequest('/curated', { per_page, page });
+              
+              result = {
+                success: true,
+                page: data.page,
+                per_page: data.per_page,
+                photos: data.photos.map((photo: any) => ({
+                  id: photo.id,
+                  width: photo.width,
+                  height: photo.height,
+                  url: photo.url,
+                  photographer: photo.photographer,
+                  photographer_url: photo.photographer_url,
+                  src: {
+                    original: photo.src.original,
+                    large: photo.src.large,
+                    medium: photo.src.medium,
+                    small: photo.src.small,
+                    tiny: photo.src.tiny
+                  },
+                  alt: photo.alt
+                }))
+              };
+            } catch (error: any) {
+              result = {
+                success: false,
+                error: `Failed to get curated photos: ${error.message}`
+              };
+            }
+            break;
+          }
+
+          case 'pexels_search_videos': {
+            const { query, per_page = 15, page = 1, orientation, size } = args || {};
+            
+            if (!query) {
+              result = {
+                success: false,
+                error: 'Query is required for pexels_search_videos'
+              };
+            } else {
+              try {
+                const params: any = { query, per_page, page };
+                if (orientation) params.orientation = orientation;
+                if (size) params.size = size;
+                
+                const data = await pexelsRequest('/videos/search', params);
+                
+                result = {
+                  success: true,
+                  total_results: data.total_results,
+                  page: data.page,
+                  per_page: data.per_page,
+                  videos: data.videos.map((video: any) => ({
+                    id: video.id,
+                    width: video.width,
+                    height: video.height,
+                    url: video.url,
+                    duration: video.duration,
+                    user: {
+                      name: video.user.name,
+                      url: video.user.url
+                    },
+                    video_files: video.video_files.map((file: any) => ({
+                      id: file.id,
+                      quality: file.quality,
+                      file_type: file.file_type,
+                      width: file.width,
+                      height: file.height,
+                      link: file.link
+                    }))
+                  }))
+                };
+              } catch (error: any) {
+                result = {
+                  success: false,
+                  error: `Failed to search videos: ${error.message}`
+                };
+              }
+            }
+            break;
+          }
+
+          case 'pexels_popular_videos': {
+            const { per_page = 15, page = 1 } = args || {};
+            
+            try {
+              const data = await pexelsRequest('/videos/popular', { per_page, page });
+              
+              result = {
+                success: true,
+                page: data.page,
+                per_page: data.per_page,
+                videos: data.videos.map((video: any) => ({
+                  id: video.id,
+                  width: video.width,
+                  height: video.height,
+                  url: video.url,
+                  duration: video.duration,
+                  user: {
+                    name: video.user.name,
+                    url: video.user.url
+                  },
+                  video_files: video.video_files.map((file: any) => ({
+                    id: file.id,
+                    quality: file.quality,
+                    file_type: file.file_type,
+                    width: file.width,
+                    height: file.height,
+                    link: file.link
+                  }))
+                }))
+              };
+            } catch (error: any) {
+              result = {
+                success: false,
+                error: `Failed to get popular videos: ${error.message}`
+              };
+            }
+            break;
+          }
           
           default:
             result = {
@@ -1138,8 +1495,9 @@ app.get('/health', async (req, res) => {
     bot_token_set: !!TELEGRAM_BOT_TOKEN,
     bot_connected: bot_connected,
     bot_username: bot_username,
-    version: '2.0.0',
+    version: '2.1.0',
     mcp_server: true,
+    pexels_enabled: !!PEXELS_API_KEY,
     environment: process.env.NODE_ENV || 'development'
   });
 });
@@ -1148,7 +1506,7 @@ app.get('/health', async (req, res) => {
 app.get('/mcp', (req, res) => {
   res.json({
     name: 'telegram-mcp-server',
-    version: '2.0.0',
+    version: '2.1.0',
     capabilities: {
       tools: {}
     }
@@ -1396,7 +1754,7 @@ async function main() {
     const port = process.env.PORT || 8080;
     
     app.listen(port, () => {
-      console.log('🚀 Telegram MCP Simple Server v2.0.0 running on port', port);
+      console.log('🚀 Telegram MCP Server v2.1.0 with Pexels API running on port', port);
       console.log(`🌐 API URL: http://localhost:${port}`);
       console.log(`📖 MCP Info: http://localhost:${port}/mcp`);
       console.log(`🔧 Tools: http://localhost:${port}/mcp/tools/list`);

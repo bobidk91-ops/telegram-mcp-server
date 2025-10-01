@@ -1,7 +1,7 @@
 {
   "name": "telegram-mcp-server",
-  "version": "2.0.0",
-  "description": "MCP Server for Telegram Bot API with blogging features",
+  "version": "2.1.0",
+  "description": "MCP Server for Telegram Bot API with Pexels integration",
   "main": "dist/simple-server.js",
   "type": "module",
   "scripts": {
@@ -14,7 +14,8 @@
     "mcp",
     "telegram",
     "bot",
-    "blogging",
+    "pexels",
+    "images",
     "api",
     "chatgpt",
     "make.com"
