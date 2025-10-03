@@ -314,20 +314,27 @@ export class WordPressAPI {
    * Upload media file directly as binary data (more efficient for large files)
    */
   async uploadMediaBinary(fileBuffer: Buffer, filename: string, mimeType: string, title?: string, alt_text?: string, caption?: string, description?: string): Promise<WordPressMedia> {
-    const headers: any = {
-      'Content-Disposition': `attachment; filename="${filename}"`,
-      'Content-Type': mimeType,
+    // Use FormData for proper multipart/form-data handling
+    const FormData = require('form-data');
+    const form = new FormData();
+    
+    // Append the file as a stream
+    form.append('file', fileBuffer, {
+      filename: filename,
+      contentType: mimeType
+    });
+    
+    const headers = {
+      ...form.getHeaders(),
       'Authorization': `Basic ${Buffer.from(`${this.config.username}:${this.config.applicationPassword}`).toString('base64')}`
     };
 
-    // Use axios with proper binary data handling
-    const response = await axios.post(`${this.config.url}/wp-json/wp/v2/media`, fileBuffer, {
+    // Use axios with FormData
+    const response = await axios.post(`${this.config.url}/wp-json/wp/v2/media`, form, {
       headers,
       timeout: 60000, // 60 seconds timeout for large files
       maxContentLength: Infinity,
-      maxBodyLength: Infinity,
-      responseType: 'json',
-      transformRequest: [(data) => data] // Prevent axios from transforming the data
+      maxBodyLength: Infinity
     });
     
     const media = response.data;
