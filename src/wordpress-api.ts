@@ -314,8 +314,8 @@ export class WordPressAPI {
    * Upload media file directly as binary data (more efficient for large files)
    */
   async uploadMediaBinary(fileBuffer: Buffer, filename: string, mimeType: string, title?: string, alt_text?: string, caption?: string, description?: string): Promise<WordPressMedia> {
-    // Use FormData for proper multipart/form-data handling
-    const FormData = require('form-data');
+    // Use dynamic import for FormData to avoid require issues in ESM
+    const { default: FormData } = await import('form-data');
     const form = new FormData();
     
     // Append the file as a stream
