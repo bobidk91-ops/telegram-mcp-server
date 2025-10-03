@@ -314,31 +314,28 @@ export class WordPressAPI {
    * Upload media file directly as binary data (more efficient for large files)
    */
   async uploadMediaBinary(fileBuffer: Buffer, filename: string, mimeType: string, title?: string, alt_text?: string, caption?: string, description?: string): Promise<WordPressMedia> {
-    // Use dynamic import for FormData to avoid require issues in ESM
-    const { default: FormData } = await import('form-data');
-    const form = new FormData();
-    
-    // Append the file as a stream
-    form.append('file', fileBuffer, {
-      filename: filename,
-      contentType: mimeType
-    });
-    
-    const headers = {
-      ...form.getHeaders(),
-      'Authorization': `Basic ${Buffer.from(`${this.config.username}:${this.config.applicationPassword}`).toString('base64')}`
-    };
+    // WordPress authorization
+    const auth = "Basic " + Buffer.from(
+      `${this.config.username}:${this.config.applicationPassword}`
+    ).toString("base64");
 
-    // Use axios with FormData
-    const response = await axios.post(`${this.config.url}/wp-json/wp/v2/media`, form, {
-      headers,
-      timeout: 60000, // 60 seconds timeout for large files
-      maxContentLength: Infinity,
-      maxBodyLength: Infinity
+    // Upload to WordPress using fetch with direct binary
+    const response = await fetch(`${this.config.url}/wp-json/wp/v2/media`, {
+      method: "POST",
+      headers: {
+        "Authorization": auth,
+        "Content-Disposition": `attachment; filename="${filename}"`,
+        "Content-Type": mimeType
+      },
+      body: new Uint8Array(fileBuffer)
     });
-    
-    const media = response.data;
-    
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      throw new Error("Upload failed: " + JSON.stringify(data));
+    }
+
     // Update metadata if provided
     if (title || alt_text || caption || description) {
       const updateData: any = {};
@@ -347,11 +344,21 @@ export class WordPressAPI {
       if (caption) updateData.caption = caption;
       if (description) updateData.description = description;
       
-      const updateResponse = await this.client.post(`/media/${media.id}`, updateData);
-      return updateResponse.data;
+      const updateResponse = await fetch(`${this.config.url}/wp-json/wp/v2/media/${data.id}`, {
+        method: "POST",
+        headers: {
+          "Authorization": auth,
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify(updateData)
+      });
+      
+      if (updateResponse.ok) {
+        return await updateResponse.json();
+      }
     }
     
-    return media;
+    return data;
   }
 
   /**
