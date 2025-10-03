@@ -1130,6 +1130,23 @@ app.post('/', async (req, res) => {
                 }
               },
               {
+                name: 'wordpress_upload_media_direct',
+                description: 'Upload a media file directly as binary data to WordPress without JSON (for large files)',
+                inputSchema: {
+                  type: 'object',
+                  properties: {
+                    file_data: { type: 'string', description: 'Base64 encoded file data' },
+                    filename: { type: 'string', description: 'Filename for the uploaded file' },
+                    mime_type: { type: 'string', description: 'MIME type of the file (e.g., image/png, image/jpeg)' },
+                    title: { type: 'string', description: 'Media title' },
+                    alt_text: { type: 'string', description: 'Alt text for images' },
+                    caption: { type: 'string', description: 'Media caption' },
+                    description: { type: 'string', description: 'Media description' }
+                  },
+                  required: ['file_data', 'filename', 'mime_type']
+                }
+              },
+              {
                 name: 'wordpress_update_media',
                 description: 'Update a WordPress media item',
                 inputSchema: {
@@ -1583,6 +1600,59 @@ app.post('/', async (req, res) => {
                 result = {
                   success: false,
                   error: `Failed to send photo: ${error.message}`,
+                  details: error.response?.body || error.message
+                };
+              }
+            }
+            break;
+          }
+
+          case 'send_photo_binary': {
+            const { file_data, filename, caption, parse_mode = 'HTML' } = args || {};
+            
+            if (!file_data || !filename) {
+              result = {
+                success: false,
+                error: 'File data and filename are required for send_photo_binary'
+              };
+            } else if (!bot) {
+              result = {
+                success: false,
+                error: 'Telegram Bot not initialized. Check bot token.'
+              };
+            } else {
+              try {
+                // Convert base64 to Buffer
+                const fileBuffer = Buffer.from(file_data, 'base64');
+                
+                // Create a readable stream from buffer
+                const { Readable } = await import('stream');
+                const stream = new Readable({
+                  read() {
+                    this.push(fileBuffer);
+                    this.push(null);
+                  }
+                });
+                
+                const response = await bot.sendPhoto(CHANNEL_ID, stream, {
+                  caption,
+                  parse_mode: parse_mode as any,
+                });
+                
+                result = {
+                  success: true,
+                  message: 'Binary photo sent to Telegram successfully!',
+                  message_id: response.message_id,
+                  photo: response.photo,
+                  caption: response.caption,
+                  channel: CHANNEL_ID,
+                  date: response.date,
+                  timestamp: new Date(response.date * 1000).toLocaleString()
+                };
+              } catch (error: any) {
+                result = {
+                  success: false,
+                  error: `Failed to send binary photo: ${error.message}`,
                   details: error.response?.body || error.message
                 };
               }
@@ -2758,6 +2828,39 @@ app.post('/', async (req, res) => {
             break;
           }
 
+          case 'wordpress_upload_media_direct': {
+            const { file_data, filename, mime_type, ...otherFields } = args || {};
+            
+            if (!file_data || !filename || !mime_type) {
+              result = {
+                success: false,
+                error: 'File data, filename, and mime_type are required for wordpress_upload_media_direct'
+              };
+            } else if (!wordpressAPI) {
+              result = {
+                success: false,
+                error: 'WordPress API not initialized. Please check WordPress configuration.'
+              };
+            } else {
+              try {
+                // Convert base64 to Buffer
+                const fileBuffer = Buffer.from(file_data, 'base64');
+                const media = await wordpressAPI.uploadMediaDirect(fileBuffer, filename, mime_type, otherFields.title, otherFields.alt_text, otherFields.caption, otherFields.description);
+                result = {
+                  success: true,
+                  media: media,
+                  note: 'WordPress media uploaded successfully via direct binary upload'
+                };
+              } catch (error: any) {
+                result = {
+                  success: false,
+                  error: `Failed to upload media direct: ${error.message}`
+                };
+              }
+            }
+            break;
+          }
+
           case 'wordpress_update_media': {
             const { id, ...updateFields } = args || {};
             
@@ -3757,6 +3860,20 @@ app.get('/mcp/tools/list', (req, res) => {
             parse_mode: { type: 'string', enum: ['HTML', 'Markdown'], description: 'Parse mode for the caption' }
           },
           required: ['photo']
+        }
+      },
+      {
+        name: 'send_photo_binary',
+        description: 'Send a photo to the Telegram channel using binary data',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            file_data: { type: 'string', description: 'Base64 encoded image data' },
+            filename: { type: 'string', description: 'Filename for the image' },
+            caption: { type: 'string', description: 'Photo caption' },
+            parse_mode: { type: 'string', enum: ['HTML', 'Markdown'], description: 'Parse mode for the caption' }
+          },
+          required: ['file_data', 'filename']
         }
       },
       {
