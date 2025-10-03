@@ -167,7 +167,7 @@ async function getYandexOAuthToken(code: string) {
 app.get('/', (req, res) => {
   res.json({
     name: 'telegram-mcp-server',
-    version: '2.2.0',
+    version: '2.3.0',
     status: 'running',
     description: 'Telegram MCP Server v2.2.0 with Pexels, Yandex Wordstat & WordPress - HTTP API for ChatGPT and Make.com',
     environment: {
@@ -1098,6 +1098,38 @@ app.post('/', async (req, res) => {
                 }
               },
               {
+                name: 'wordpress_upload_media_binary',
+                description: 'Upload a media file directly as binary data to WordPress (more efficient for large files)',
+                inputSchema: {
+                  type: 'object',
+                  properties: {
+                    file_data: { type: 'string', description: 'Base64 encoded file data' },
+                    filename: { type: 'string', description: 'Filename for the uploaded file' },
+                    mime_type: { type: 'string', description: 'MIME type of the file (e.g., image/png, image/jpeg)' },
+                    title: { type: 'string', description: 'Media title' },
+                    alt_text: { type: 'string', description: 'Alt text for images' },
+                    caption: { type: 'string', description: 'Media caption' },
+                    description: { type: 'string', description: 'Media description' }
+                  },
+                  required: ['file_data', 'filename', 'mime_type']
+                }
+              },
+              {
+                name: 'wordpress_update_media_metadata',
+                description: 'Update media metadata (alt_text, caption, description)',
+                inputSchema: {
+                  type: 'object',
+                  properties: {
+                    id: { type: 'number', description: 'Media ID' },
+                    title: { type: 'string', description: 'Media title' },
+                    alt_text: { type: 'string', description: 'Alt text for images' },
+                    caption: { type: 'string', description: 'Media caption' },
+                    description: { type: 'string', description: 'Media description' }
+                  },
+                  required: ['id']
+                }
+              },
+              {
                 name: 'wordpress_update_media',
                 description: 'Update a WordPress media item',
                 inputSchema: {
@@ -1452,7 +1484,7 @@ app.post('/', async (req, res) => {
                   type: 'object',
                   properties: {}
                 }
-              }
+              },
             ]
           }
         });
@@ -2662,6 +2694,70 @@ app.post('/', async (req, res) => {
             break;
           }
 
+          case 'wordpress_upload_media_binary': {
+            const { file_data, filename, mime_type, ...otherFields } = args || {};
+            
+            if (!file_data || !filename || !mime_type) {
+              result = {
+                success: false,
+                error: 'File data, filename, and mime_type are required for wordpress_upload_media_binary'
+              };
+            } else if (!wordpressAPI) {
+              result = {
+                success: false,
+                error: 'WordPress API not initialized. Please check WordPress configuration.'
+              };
+            } else {
+              try {
+                // Convert base64 to Buffer
+                const fileBuffer = Buffer.from(file_data, 'base64');
+                const media = await wordpressAPI.uploadMediaBinary(fileBuffer, filename, mime_type, otherFields.title, otherFields.alt_text, otherFields.caption, otherFields.description);
+                result = {
+                  success: true,
+                  media: media,
+                  note: 'WordPress media uploaded successfully via binary upload'
+                };
+              } catch (error: any) {
+                result = {
+                  success: false,
+                  error: `Failed to upload media binary: ${error.message}`
+                };
+              }
+            }
+            break;
+          }
+
+          case 'wordpress_update_media_metadata': {
+            const { id, ...metadata } = args || {};
+            
+            if (!id) {
+              result = {
+                success: false,
+                error: 'Media ID is required for wordpress_update_media_metadata'
+              };
+            } else if (!wordpressAPI) {
+              result = {
+                success: false,
+                error: 'WordPress API not initialized. Please check WordPress configuration.'
+              };
+            } else {
+              try {
+                const media = await wordpressAPI.updateMediaMetadata(id, metadata);
+                result = {
+                  success: true,
+                  media: media,
+                  note: 'WordPress media metadata updated successfully'
+                };
+              } catch (error: any) {
+                result = {
+                  success: false,
+                  error: `Failed to update media metadata: ${error.message}`
+                };
+              }
+            }
+            break;
+          }
+
           case 'wordpress_update_media': {
             const { id, ...updateFields } = args || {};
             
@@ -3446,6 +3542,7 @@ app.post('/', async (req, res) => {
             }
             break;
           }
+
           
           default:
             result = {
@@ -3523,7 +3620,7 @@ app.get('/health', async (req, res) => {
     bot_token_set: !!TELEGRAM_BOT_TOKEN,
     bot_connected: bot_connected,
     bot_username: bot_username,
-    version: '2.2.0',
+    version: '2.3.0',
     mcp_server: true,
     pexels_enabled: !!PEXELS_API_KEY,
     yandex_oauth: !!YANDEX_OAUTH_TOKEN,
@@ -3874,7 +3971,7 @@ async function main() {
     const port = process.env.PORT || 8080;
     
     app.listen(port, () => {
-      console.log('🚀 Telegram MCP Server v2.2.0 with Pexels, Yandex Wordstat & WordPress running on port', port);
+      console.log('🚀 Telegram MCP Server v2.3.0 with Pexels, Yandex Wordstat & WordPress running on port', port);
       console.log(`🌐 API URL: http://localhost:${port}`);
       console.log(`📖 MCP Info: http://localhost:${port}/mcp`);
       console.log(`🔧 Tools: http://localhost:${port}/mcp/tools/list`);

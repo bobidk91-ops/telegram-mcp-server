@@ -310,6 +310,51 @@ export class WordPressAPI {
     return response.data;
   }
 
+  /**
+   * Upload media file directly as binary data (more efficient for large files)
+   */
+  async uploadMediaBinary(fileBuffer: Buffer, filename: string, mimeType: string, title?: string, alt_text?: string, caption?: string, description?: string): Promise<WordPressMedia> {
+    const headers: any = {
+      'Content-Disposition': `attachment; filename="${filename}"`,
+      'Content-Type': mimeType,
+      'Authorization': `Basic ${Buffer.from(`${this.config.username}:${this.config.applicationPassword}`).toString('base64')}`
+    };
+
+    const response = await axios.post(`${this.config.url}/wp-json/wp/v2/media`, fileBuffer, {
+      headers,
+      timeout: 60000 // 60 seconds timeout for large files
+    });
+    
+    const media = response.data;
+    
+    // Update metadata if provided
+    if (title || alt_text || caption || description) {
+      const updateData: any = {};
+      if (title) updateData.title = title;
+      if (alt_text) updateData.alt_text = alt_text;
+      if (caption) updateData.caption = caption;
+      if (description) updateData.description = description;
+      
+      const updateResponse = await this.client.post(`/media/${media.id}`, updateData);
+      return updateResponse.data;
+    }
+    
+    return media;
+  }
+
+  /**
+   * Update media metadata (alt_text, caption, description)
+   */
+  async updateMediaMetadata(id: number, metadata: {
+    title?: string;
+    alt_text?: string;
+    caption?: string;
+    description?: string;
+  }): Promise<WordPressMedia> {
+    const response = await this.client.post(`/media/${id}`, metadata);
+    return response.data;
+  }
+
   async updateMedia(id: number, media: Partial<WordPressMedia>): Promise<WordPressMedia> {
     const response = await this.client.post(`/media/${id}`, media);
     return response.data;
