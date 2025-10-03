@@ -320,9 +320,14 @@ export class WordPressAPI {
       'Authorization': `Basic ${Buffer.from(`${this.config.username}:${this.config.applicationPassword}`).toString('base64')}`
     };
 
+    // Use axios with proper binary data handling
     const response = await axios.post(`${this.config.url}/wp-json/wp/v2/media`, fileBuffer, {
       headers,
-      timeout: 60000 // 60 seconds timeout for large files
+      timeout: 60000, // 60 seconds timeout for large files
+      maxContentLength: Infinity,
+      maxBodyLength: Infinity,
+      responseType: 'json',
+      transformRequest: [(data) => data] // Prevent axios from transforming the data
     });
     
     const media = response.data;
