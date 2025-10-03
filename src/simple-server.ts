@@ -3993,6 +3993,505 @@ app.get('/mcp/tools/list', (req, res) => {
           type: 'object',
           properties: {}
         }
+      },
+      // WordPress tools
+      {
+        name: 'wordpress_upload_media',
+        description: 'Upload a media file to WordPress',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            file_url: { type: 'string', description: 'URL of the file to upload' },
+            filename: { type: 'string', description: 'Filename for the uploaded file' },
+            title: { type: 'string', description: 'Media title' },
+            alt_text: { type: 'string', description: 'Alt text for images' },
+            caption: { type: 'string', description: 'Media caption' },
+            description: { type: 'string', description: 'Media description' }
+          },
+          required: ['file_url', 'filename']
+        }
+      },
+      {
+        name: 'wordpress_upload_media_binary',
+        description: 'Upload a media file directly as binary data to WordPress (more efficient for large files)',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            file_data: { type: 'string', description: 'Base64 encoded file data' },
+            filename: { type: 'string', description: 'Filename for the uploaded file' },
+            mime_type: { type: 'string', description: 'MIME type of the file (e.g., image/png, image/jpeg)' },
+            title: { type: 'string', description: 'Media title' },
+            alt_text: { type: 'string', description: 'Alt text for images' },
+            caption: { type: 'string', description: 'Media caption' },
+            description: { type: 'string', description: 'Media description' }
+          },
+          required: ['file_data', 'filename', 'mime_type']
+        }
+      },
+      {
+        name: 'wordpress_upload_media_direct',
+        description: 'Upload a media file directly as binary data to WordPress without JSON (for large files)',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            file_data: { type: 'string', description: 'Base64 encoded file data' },
+            filename: { type: 'string', description: 'Filename for the uploaded file' },
+            mime_type: { type: 'string', description: 'MIME type of the file (e.g., image/png, image/jpeg)' },
+            title: { type: 'string', description: 'Media title' },
+            alt_text: { type: 'string', description: 'Alt text for images' },
+            caption: { type: 'string', description: 'Media caption' },
+            description: { type: 'string', description: 'Media description' }
+          },
+          required: ['file_data', 'filename', 'mime_type']
+        }
+      },
+      {
+        name: 'wordpress_update_media_metadata',
+        description: 'Update media metadata (alt_text, caption, description)',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            id: { type: 'number', description: 'Media ID' },
+            title: { type: 'string', description: 'Media title' },
+            alt_text: { type: 'string', description: 'Alt text for images' },
+            caption: { type: 'string', description: 'Media caption' },
+            description: { type: 'string', description: 'Media description' }
+          },
+          required: ['id']
+        }
+      },
+      {
+        name: 'wordpress_update_media',
+        description: 'Update a WordPress media item',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            id: { type: 'number', description: 'Media ID' },
+            title: { type: 'string', description: 'Media title' },
+            alt_text: { type: 'string', description: 'Alt text for images' },
+            caption: { type: 'string', description: 'Media caption' },
+            description: { type: 'string', description: 'Media description' }
+          },
+          required: ['id']
+        }
+      },
+      {
+        name: 'wordpress_get_media',
+        description: 'Get a WordPress media item by ID',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            id: { type: 'number', description: 'Media ID' }
+          },
+          required: ['id']
+        }
+      },
+      {
+        name: 'wordpress_list_media',
+        description: 'List WordPress media items',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            per_page: { type: 'number', description: 'Number of items per page (default: 10)' },
+            page: { type: 'number', description: 'Page number (default: 1)' },
+            search: { type: 'string', description: 'Search term' },
+            media_type: { type: 'string', description: 'Media type (image, video, audio, application)' },
+            mime_type: { type: 'string', description: 'MIME type filter' }
+          }
+        }
+      },
+      {
+        name: 'wordpress_delete_media',
+        description: 'Delete a WordPress media item',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            id: { type: 'number', description: 'Media ID' },
+            force: { type: 'boolean', description: 'Force delete (bypass trash)' }
+          },
+          required: ['id']
+        }
+      },
+      {
+        name: 'wordpress_create_post',
+        description: 'Create a new WordPress post',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            title: { type: 'string', description: 'Post title' },
+            content: { type: 'string', description: 'Post content (HTML)' },
+            excerpt: { type: 'string', description: 'Post excerpt' },
+            status: { type: 'string', enum: ['publish', 'draft', 'private', 'pending'], description: 'Post status' },
+            featured_media: { type: 'number', description: 'Featured media ID' },
+            categories: { type: 'array', items: { type: 'number' }, description: 'Category IDs' },
+            tags: { type: 'array', items: { type: 'number' }, description: 'Tag IDs' },
+            meta: { type: 'object', description: 'Custom meta fields' }
+          },
+          required: ['title', 'content']
+        }
+      },
+      {
+        name: 'wordpress_update_post',
+        description: 'Update a WordPress post',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            id: { type: 'number', description: 'Post ID' },
+            title: { type: 'string', description: 'Post title' },
+            content: { type: 'string', description: 'Post content (HTML)' },
+            excerpt: { type: 'string', description: 'Post excerpt' },
+            status: { type: 'string', enum: ['publish', 'draft', 'private', 'pending'], description: 'Post status' },
+            featured_media: { type: 'number', description: 'Featured media ID' },
+            categories: { type: 'array', items: { type: 'number' }, description: 'Category IDs' },
+            tags: { type: 'array', items: { type: 'number' }, description: 'Tag IDs' },
+            meta: { type: 'object', description: 'Custom meta fields' }
+          },
+          required: ['id']
+        }
+      },
+      {
+        name: 'wordpress_get_post',
+        description: 'Get a WordPress post by ID',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            id: { type: 'number', description: 'Post ID' }
+          },
+          required: ['id']
+        }
+      },
+      {
+        name: 'wordpress_list_posts',
+        description: 'List WordPress posts',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            per_page: { type: 'number', description: 'Number of items per page (default: 10)' },
+            page: { type: 'number', description: 'Page number (default: 1)' },
+            search: { type: 'string', description: 'Search term' },
+            status: { type: 'string', description: 'Post status' },
+            categories: { type: 'array', items: { type: 'number' }, description: 'Category IDs' },
+            tags: { type: 'array', items: { type: 'number' }, description: 'Tag IDs' }
+          }
+        }
+      },
+      {
+        name: 'wordpress_delete_post',
+        description: 'Delete a WordPress post',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            id: { type: 'number', description: 'Post ID' },
+            force: { type: 'boolean', description: 'Force delete (bypass trash)' }
+          },
+          required: ['id']
+        }
+      },
+      {
+        name: 'wordpress_create_page',
+        description: 'Create a new WordPress page',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            title: { type: 'string', description: 'Page title' },
+            content: { type: 'string', description: 'Page content (HTML)' },
+            excerpt: { type: 'string', description: 'Page excerpt' },
+            status: { type: 'string', enum: ['publish', 'draft', 'private', 'pending'], description: 'Page status' },
+            featured_media: { type: 'number', description: 'Featured media ID' },
+            parent: { type: 'number', description: 'Parent page ID' },
+            menu_order: { type: 'number', description: 'Menu order' },
+            template: { type: 'string', description: 'Page template' },
+            meta: { type: 'object', description: 'Custom meta fields' }
+          },
+          required: ['title', 'content']
+        }
+      },
+      {
+        name: 'wordpress_update_page',
+        description: 'Update a WordPress page',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            id: { type: 'number', description: 'Page ID' },
+            title: { type: 'string', description: 'Page title' },
+            content: { type: 'string', description: 'Page content (HTML)' },
+            excerpt: { type: 'string', description: 'Page excerpt' },
+            status: { type: 'string', enum: ['publish', 'draft', 'private', 'pending'], description: 'Page status' },
+            featured_media: { type: 'number', description: 'Featured media ID' },
+            parent: { type: 'number', description: 'Parent page ID' },
+            menu_order: { type: 'number', description: 'Menu order' },
+            template: { type: 'string', description: 'Page template' },
+            meta: { type: 'object', description: 'Custom meta fields' }
+          },
+          required: ['id']
+        }
+      },
+      {
+        name: 'wordpress_get_page',
+        description: 'Get a WordPress page by ID',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            id: { type: 'number', description: 'Page ID' }
+          },
+          required: ['id']
+        }
+      },
+      {
+        name: 'wordpress_list_pages',
+        description: 'List WordPress pages',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            per_page: { type: 'number', description: 'Number of items per page (default: 10)' },
+            page: { type: 'number', description: 'Page number (default: 1)' },
+            search: { type: 'string', description: 'Search term' },
+            status: { type: 'string', description: 'Page status' },
+            parent: { type: 'number', description: 'Parent page ID' }
+          }
+        }
+      },
+      {
+        name: 'wordpress_delete_page',
+        description: 'Delete a WordPress page',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            id: { type: 'number', description: 'Page ID' },
+            force: { type: 'boolean', description: 'Force delete (bypass trash)' }
+          },
+          required: ['id']
+        }
+      },
+      {
+        name: 'wordpress_create_category',
+        description: 'Create a new WordPress category',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            name: { type: 'string', description: 'Category name' },
+            description: { type: 'string', description: 'Category description' },
+            parent: { type: 'number', description: 'Parent category ID' },
+            slug: { type: 'string', description: 'Category slug' }
+          },
+          required: ['name']
+        }
+      },
+      {
+        name: 'wordpress_update_category',
+        description: 'Update a WordPress category',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            id: { type: 'number', description: 'Category ID' },
+            name: { type: 'string', description: 'Category name' },
+            description: { type: 'string', description: 'Category description' },
+            parent: { type: 'number', description: 'Parent category ID' },
+            slug: { type: 'string', description: 'Category slug' }
+          },
+          required: ['id']
+        }
+      },
+      {
+        name: 'wordpress_get_category',
+        description: 'Get a WordPress category by ID',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            id: { type: 'number', description: 'Category ID' }
+          },
+          required: ['id']
+        }
+      },
+      {
+        name: 'wordpress_list_categories',
+        description: 'List WordPress categories',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            per_page: { type: 'number', description: 'Number of items per page (default: 10)' },
+            page: { type: 'number', description: 'Page number (default: 1)' },
+            search: { type: 'string', description: 'Search term' },
+            parent: { type: 'number', description: 'Parent category ID' },
+            hide_empty: { type: 'boolean', description: 'Hide empty categories' }
+          }
+        }
+      },
+      {
+        name: 'wordpress_delete_category',
+        description: 'Delete a WordPress category',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            id: { type: 'number', description: 'Category ID' },
+            force: { type: 'boolean', description: 'Force delete' }
+          },
+          required: ['id']
+        }
+      },
+      {
+        name: 'wordpress_create_tag',
+        description: 'Create a new WordPress tag',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            name: { type: 'string', description: 'Tag name' },
+            description: { type: 'string', description: 'Tag description' },
+            slug: { type: 'string', description: 'Tag slug' }
+          },
+          required: ['name']
+        }
+      },
+      {
+        name: 'wordpress_update_tag',
+        description: 'Update a WordPress tag',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            id: { type: 'number', description: 'Tag ID' },
+            name: { type: 'string', description: 'Tag name' },
+            description: { type: 'string', description: 'Tag description' },
+            slug: { type: 'string', description: 'Tag slug' }
+          },
+          required: ['id']
+        }
+      },
+      {
+        name: 'wordpress_get_tag',
+        description: 'Get a WordPress tag by ID',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            id: { type: 'number', description: 'Tag ID' }
+          },
+          required: ['id']
+        }
+      },
+      {
+        name: 'wordpress_list_tags',
+        description: 'List WordPress tags',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            per_page: { type: 'number', description: 'Number of items per page (default: 10)' },
+            page: { type: 'number', description: 'Page number (default: 1)' },
+            search: { type: 'string', description: 'Search term' },
+            hide_empty: { type: 'boolean', description: 'Hide empty tags' }
+          }
+        }
+      },
+      {
+        name: 'wordpress_delete_tag',
+        description: 'Delete a WordPress tag',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            id: { type: 'number', description: 'Tag ID' },
+            force: { type: 'boolean', description: 'Force delete' }
+          },
+          required: ['id']
+        }
+      },
+      {
+        name: 'wordpress_get_user',
+        description: 'Get a WordPress user by ID',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            id: { type: 'number', description: 'User ID' }
+          },
+          required: ['id']
+        }
+      },
+      {
+        name: 'wordpress_list_users',
+        description: 'List WordPress users',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            per_page: { type: 'number', description: 'Number of items per page (default: 10)' },
+            page: { type: 'number', description: 'Page number (default: 1)' },
+            search: { type: 'string', description: 'Search term' },
+            roles: { type: 'array', items: { type: 'string' }, description: 'User roles' }
+          }
+        }
+      },
+      {
+        name: 'wordpress_create_comment',
+        description: 'Create a new WordPress comment',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            post: { type: 'number', description: 'Post ID' },
+            author_name: { type: 'string', description: 'Author name' },
+            author_email: { type: 'string', description: 'Author email' },
+            content: { type: 'string', description: 'Comment content' },
+            status: { type: 'string', enum: ['hold', 'approve', 'spam', 'trash'], description: 'Comment status' },
+            parent: { type: 'number', description: 'Parent comment ID' }
+          },
+          required: ['post', 'author_name', 'author_email', 'content']
+        }
+      },
+      {
+        name: 'wordpress_update_comment',
+        description: 'Update a WordPress comment',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            id: { type: 'number', description: 'Comment ID' },
+            author_name: { type: 'string', description: 'Author name' },
+            author_email: { type: 'string', description: 'Author email' },
+            content: { type: 'string', description: 'Comment content' },
+            status: { type: 'string', enum: ['hold', 'approve', 'spam', 'trash'], description: 'Comment status' }
+          },
+          required: ['id']
+        }
+      },
+      {
+        name: 'wordpress_get_comment',
+        description: 'Get a WordPress comment by ID',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            id: { type: 'number', description: 'Comment ID' }
+          },
+          required: ['id']
+        }
+      },
+      {
+        name: 'wordpress_list_comments',
+        description: 'List WordPress comments',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            per_page: { type: 'number', description: 'Number of items per page (default: 10)' },
+            page: { type: 'number', description: 'Page number (default: 1)' },
+            search: { type: 'string', description: 'Search term' },
+            status: { type: 'string', description: 'Comment status' },
+            post: { type: 'number', description: 'Post ID' },
+            parent: { type: 'number', description: 'Parent comment ID' }
+          }
+        }
+      },
+      {
+        name: 'wordpress_delete_comment',
+        description: 'Delete a WordPress comment',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            id: { type: 'number', description: 'Comment ID' },
+            force: { type: 'boolean', description: 'Force delete (bypass trash)' }
+          },
+          required: ['id']
+        }
+      },
+      {
+        name: 'wordpress_get_site_info',
+        description: 'Get WordPress site information',
+        inputSchema: {
+          type: 'object',
+          properties: {}
+        }
       }
     ]
   });
