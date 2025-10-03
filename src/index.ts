@@ -6,9 +6,16 @@ import {
   ListToolsRequestSchema,
 } from '@modelcontextprotocol/sdk/types.js';
 import TelegramBot from 'node-telegram-bot-api';
+import { WordPressAPI, WordPressConfig } from './wordpress-api.js';
 
 const TELEGRAM_BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
 const CHANNEL_ID = process.env.TELEGRAM_CHANNEL_ID || '@mymcptest';
+
+// WordPress Configuration
+const WORDPRESS_URL = process.env.WORDPRESS_URL || '';
+const WORDPRESS_USERNAME = process.env.WORDPRESS_USERNAME || '';
+const WORDPRESS_PASSWORD = process.env.WORDPRESS_PASSWORD || '';
+const WORDPRESS_APPLICATION_PASSWORD = process.env.WORDPRESS_APPLICATION_PASSWORD || '';
 
 if (!TELEGRAM_BOT_TOKEN) {
   console.error('❌ TELEGRAM_BOT_TOKEN is not set in environment variables.');
@@ -17,11 +24,28 @@ if (!TELEGRAM_BOT_TOKEN) {
 
 const bot = new TelegramBot(TELEGRAM_BOT_TOKEN, { polling: false });
 
+// Initialize WordPress API
+let wordpressAPI: WordPressAPI | null = null;
+if (WORDPRESS_URL && WORDPRESS_USERNAME && (WORDPRESS_PASSWORD || WORDPRESS_APPLICATION_PASSWORD)) {
+  try {
+    const wpConfig: WordPressConfig = {
+      url: WORDPRESS_URL,
+      username: WORDPRESS_USERNAME,
+      password: WORDPRESS_PASSWORD,
+      applicationPassword: WORDPRESS_APPLICATION_PASSWORD
+    };
+    wordpressAPI = new WordPressAPI(wpConfig);
+    console.log('🌐 WordPress API initialized');
+  } catch (error) {
+    console.error('❌ Failed to initialize WordPress API:', error);
+  }
+}
+
 // Create MCP server
 const server = new Server(
   {
     name: 'telegram-mcp-server',
-    version: '2.0.0',
+    version: '2.2.0',
   },
   {
     capabilities: {
@@ -214,6 +238,88 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
           },
           required: ['video_url'],
         },
+      },
+      // WordPress Posts
+      {
+        name: 'wordpress_get_posts',
+        description: 'Get WordPress posts with optional filtering',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            page: { type: 'number', description: 'Page number (default: 1)' },
+            per_page: { type: 'number', description: 'Posts per page (default: 10, max: 100)' },
+            search: { type: 'string', description: 'Search query' },
+            status: { type: 'string', description: 'Post status (publish, draft, private, pending)' },
+            categories: { type: 'array', items: { type: 'number' }, description: 'Category IDs' },
+            tags: { type: 'array', items: { type: 'number' }, description: 'Tag IDs' },
+            author: { type: 'number', description: 'Author ID' },
+            order: { type: 'string', enum: ['asc', 'desc'], description: 'Sort order' },
+            orderby: { type: 'string', enum: ['date', 'id', 'include', 'relevance', 'slug', 'title'], description: 'Sort by field' }
+          }
+        }
+      },
+      {
+        name: 'wordpress_create_post',
+        description: 'Create a new WordPress post',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            title: { type: 'string', description: 'Post title' },
+            content: { type: 'string', description: 'Post content (HTML)' },
+            excerpt: { type: 'string', description: 'Post excerpt' },
+            status: { type: 'string', enum: ['publish', 'draft', 'private', 'pending'], description: 'Post status' },
+            slug: { type: 'string', description: 'Post slug' },
+            categories: { type: 'array', items: { type: 'number' }, description: 'Category IDs' },
+            tags: { type: 'array', items: { type: 'number' }, description: 'Tag IDs' },
+            featured_media: { type: 'number', description: 'Featured media ID' },
+            author: { type: 'number', description: 'Author ID' },
+            sticky: { type: 'boolean', description: 'Make post sticky' },
+            comment_status: { type: 'string', enum: ['open', 'closed'], description: 'Comment status' },
+            ping_status: { type: 'string', enum: ['open', 'closed'], description: 'Ping status' }
+          },
+          required: ['title', 'content']
+        }
+      },
+      {
+        name: 'wordpress_upload_media',
+        description: 'Upload a media file to WordPress',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            file_url: { type: 'string', description: 'URL of the file to upload' },
+            filename: { type: 'string', description: 'Filename for the uploaded file' },
+            title: { type: 'string', description: 'Media title' },
+            alt_text: { type: 'string', description: 'Alt text for images' },
+            caption: { type: 'string', description: 'Media caption' },
+            description: { type: 'string', description: 'Media description' }
+          },
+          required: ['file_url', 'filename']
+        }
+      },
+      {
+        name: 'wordpress_get_categories',
+        description: 'Get WordPress categories',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            page: { type: 'number', description: 'Page number (default: 1)' },
+            per_page: { type: 'number', description: 'Categories per page (default: 10, max: 100)' },
+            search: { type: 'string', description: 'Search query' },
+            hide_empty: { type: 'boolean', description: 'Hide empty categories' },
+            parent: { type: 'number', description: 'Parent category ID' },
+            post: { type: 'number', description: 'Post ID to get categories for' },
+            order: { type: 'string', enum: ['asc', 'desc'], description: 'Sort order' },
+            orderby: { type: 'string', enum: ['id', 'include', 'name', 'slug', 'term_group', 'description', 'count'], description: 'Sort by field' }
+          }
+        }
+      },
+      {
+        name: 'wordpress_test_connection',
+        description: 'Test WordPress connection',
+        inputSchema: {
+          type: 'object',
+          properties: {}
+        }
       },
     ],
   };
@@ -409,6 +515,229 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         };
       }
 
+      // WordPress Posts
+      case 'wordpress_get_posts': {
+        if (!wordpressAPI) {
+          return {
+            content: [
+              {
+                type: 'text',
+                text: '❌ WordPress API not initialized. Please check WordPress configuration.',
+              },
+            ],
+            isError: true,
+          };
+        }
+        
+        try {
+          const posts = await wordpressAPI.getPosts(args as any);
+          return {
+            content: [
+              {
+                type: 'text',
+                text: `✅ WordPress posts retrieved successfully!\n\n📊 Found ${posts.length} posts\n\n${posts.map((post: any) => `📝 ${post.title} (ID: ${post.id})`).join('\n')}`,
+              },
+            ],
+          };
+        } catch (error: any) {
+          return {
+            content: [
+              {
+                type: 'text',
+                text: `❌ Failed to get WordPress posts: ${error.message}`,
+              },
+            ],
+            isError: true,
+          };
+        }
+      }
+
+      case 'wordpress_create_post': {
+        const { title, content, ...otherFields } = args as {
+          title: string;
+          content: string;
+          [key: string]: any;
+        };
+        
+        if (!title || !content) {
+          return {
+            content: [
+              {
+                type: 'text',
+                text: '❌ Title and content are required for wordpress_create_post',
+              },
+            ],
+            isError: true,
+          };
+        }
+        
+        if (!wordpressAPI) {
+          return {
+            content: [
+              {
+                type: 'text',
+                text: '❌ WordPress API not initialized. Please check WordPress configuration.',
+              },
+            ],
+            isError: true,
+          };
+        }
+        
+        try {
+          const post = await wordpressAPI.createPost({
+            title,
+            content,
+            ...otherFields
+          });
+          
+          return {
+            content: [
+              {
+                type: 'text',
+                text: `✅ WordPress post created successfully!\n\n📝 Title: ${post.title}\n🆔 ID: ${post.id}\n📊 Status: ${post.status}`,
+              },
+            ],
+          };
+        } catch (error: any) {
+          return {
+            content: [
+              {
+                type: 'text',
+                text: `❌ Failed to create WordPress post: ${error.message}`,
+              },
+            ],
+            isError: true,
+          };
+        }
+      }
+
+      case 'wordpress_upload_media': {
+        const { file_url, filename, ...otherFields } = args as {
+          file_url: string;
+          filename: string;
+          [key: string]: any;
+        };
+        
+        if (!file_url || !filename) {
+          return {
+            content: [
+              {
+                type: 'text',
+                text: '❌ File URL and filename are required for wordpress_upload_media',
+              },
+            ],
+            isError: true,
+          };
+        }
+        
+        if (!wordpressAPI) {
+          return {
+            content: [
+              {
+                type: 'text',
+                text: '❌ WordPress API not initialized. Please check WordPress configuration.',
+              },
+            ],
+            isError: true,
+          };
+        }
+        
+        try {
+          const media = await wordpressAPI.uploadMedia(file_url, filename, otherFields.title, otherFields.alt_text, otherFields.caption, otherFields.description);
+          
+          return {
+            content: [
+              {
+                type: 'text',
+                text: `✅ WordPress media uploaded successfully!\n\n📁 Title: ${media.title}\n🆔 ID: ${media.id}\n🔗 URL: ${media.source_url}\n📊 Type: ${media.media_type}`,
+              },
+            ],
+          };
+        } catch (error: any) {
+          return {
+            content: [
+              {
+                type: 'text',
+                text: `❌ Failed to upload WordPress media: ${error.message}`,
+              },
+            ],
+            isError: true,
+          };
+        }
+      }
+
+      case 'wordpress_get_categories': {
+        if (!wordpressAPI) {
+          return {
+            content: [
+              {
+                type: 'text',
+                text: '❌ WordPress API not initialized. Please check WordPress configuration.',
+              },
+            ],
+            isError: true,
+          };
+        }
+        
+        try {
+          const categories = await wordpressAPI.getCategories(args as any);
+          return {
+            content: [
+              {
+                type: 'text',
+                text: `✅ WordPress categories retrieved successfully!\n\n📊 Found ${categories.length} categories\n\n${categories.map((cat: any) => `📂 ${cat.name} (ID: ${cat.id}, Count: ${cat.count})`).join('\n')}`,
+              },
+            ],
+          };
+        } catch (error: any) {
+          return {
+            content: [
+              {
+                type: 'text',
+                text: `❌ Failed to get WordPress categories: ${error.message}`,
+              },
+            ],
+            isError: true,
+          };
+        }
+      }
+
+      case 'wordpress_test_connection': {
+        if (!wordpressAPI) {
+          return {
+            content: [
+              {
+                type: 'text',
+                text: '❌ WordPress API not initialized. Please check WordPress configuration.',
+              },
+            ],
+            isError: true,
+          };
+        }
+        
+        try {
+          const isConnected = await wordpressAPI.testConnection();
+          return {
+            content: [
+              {
+                type: 'text',
+                text: `✅ WordPress connection test ${isConnected ? 'successful' : 'failed'}!\n\n🌐 URL: ${WORDPRESS_URL}\n👤 User: ${WORDPRESS_USERNAME}\n🔗 Status: ${isConnected ? 'Connected' : 'Failed'}`,
+              },
+            ],
+          };
+        } catch (error: any) {
+          return {
+            content: [
+              {
+                type: 'text',
+                text: `❌ Failed to test WordPress connection: ${error.message}`,
+              },
+            ],
+            isError: true,
+          };
+        }
+      }
+
       default:
         throw new Error(`Unknown tool: ${name}`);
     }
@@ -436,9 +765,15 @@ async function main() {
     const transport = new StdioServerTransport();
     await server.connect(transport);
     
-    console.log('🚀 Telegram MCP Server v2.0.0 running on stdio');
+    console.log('🚀 Telegram MCP Server v2.2.0 running on stdio');
     console.log('✅ Ready for ChatGPT and Make.com integration!');
     console.log('📋 Available tools: send_message, send_photo, send_poll, send_reaction, edit_message, delete_message, get_channel_info, send_document, send_video');
+    console.log('🌐 WordPress tools: wordpress_get_posts, wordpress_create_post, wordpress_upload_media, wordpress_get_categories, wordpress_test_connection');
+    console.log(`🌐 WordPress: ${wordpressAPI ? 'CONNECTED' : 'NOT CONFIGURED'}`);
+    if (wordpressAPI) {
+      console.log(`   URL: ${WORDPRESS_URL}`);
+      console.log(`   User: ${WORDPRESS_USERNAME}`);
+    }
   } catch (error) {
     console.error('❌ Server startup error:', error);
     process.exit(1);

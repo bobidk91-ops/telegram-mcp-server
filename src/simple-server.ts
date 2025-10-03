@@ -2,6 +2,7 @@ import 'dotenv/config';
 import express from 'express';
 import cors from 'cors';
 import TelegramBot from 'node-telegram-bot-api';
+import { WordPressAPI, WordPressConfig } from './wordpress-api.js';
 
 const app = express();
 app.use(express.json({ limit: '10mb' }));
@@ -16,6 +17,29 @@ const YANDEX_CLIENT_ID = process.env.YANDEX_CLIENT_ID || '11221f6ebd2d47649d42d9
 const YANDEX_CLIENT_SECRET = process.env.YANDEX_CLIENT_SECRET || 'eb793370893544d683bf277d14bfd842';
 const YANDEX_LOGIN = process.env.YANDEX_LOGIN || 'bobi-dk91';
 let YANDEX_OAUTH_TOKEN = process.env.YANDEX_OAUTH_TOKEN || '';
+
+// WordPress Configuration
+const WORDPRESS_URL = process.env.WORDPRESS_URL || '';
+const WORDPRESS_USERNAME = process.env.WORDPRESS_USERNAME || '';
+const WORDPRESS_PASSWORD = process.env.WORDPRESS_PASSWORD || '';
+const WORDPRESS_APPLICATION_PASSWORD = process.env.WORDPRESS_APPLICATION_PASSWORD || '';
+
+// Initialize WordPress API
+let wordpressAPI: WordPressAPI | null = null;
+if (WORDPRESS_URL && WORDPRESS_USERNAME && (WORDPRESS_PASSWORD || WORDPRESS_APPLICATION_PASSWORD)) {
+  try {
+    const wpConfig: WordPressConfig = {
+      url: WORDPRESS_URL,
+      username: WORDPRESS_USERNAME,
+      password: WORDPRESS_PASSWORD,
+      applicationPassword: WORDPRESS_APPLICATION_PASSWORD
+    };
+    wordpressAPI = new WordPressAPI(wpConfig);
+    console.log('🌐 WordPress API initialized');
+  } catch (error) {
+    console.error('❌ Failed to initialize WordPress API:', error);
+  }
+}
 
 // Log environment status
 if (process.env.TELEGRAM_BOT_TOKEN) {
@@ -36,6 +60,10 @@ console.log('TELEGRAM_CHANNEL_ID:', CHANNEL_ID);
 console.log('PEXELS_API_KEY:', PEXELS_API_KEY ? 'SET' : 'NOT SET');
 console.log('YANDEX_CLIENT_ID:', YANDEX_CLIENT_ID ? 'SET' : 'NOT SET');
 console.log('YANDEX_OAUTH_TOKEN:', YANDEX_OAUTH_TOKEN ? 'SET' : 'NOT SET');
+console.log('WORDPRESS_URL:', WORDPRESS_URL ? 'SET' : 'NOT SET');
+console.log('WORDPRESS_USERNAME:', WORDPRESS_USERNAME ? 'SET' : 'NOT SET');
+console.log('WORDPRESS_PASSWORD:', WORDPRESS_PASSWORD ? 'SET' : 'NOT SET');
+console.log('WORDPRESS_APPLICATION_PASSWORD:', WORDPRESS_APPLICATION_PASSWORD ? 'SET' : 'NOT SET');
 
 // Initialize Telegram Bot
 let bot;
@@ -141,10 +169,14 @@ app.get('/', (req, res) => {
     name: 'telegram-mcp-server',
     version: '2.2.0',
     status: 'running',
-    description: 'Telegram MCP Server v2.2.0 with Pexels & Yandex Wordstat - HTTP API for ChatGPT and Make.com',
+    description: 'Telegram MCP Server v2.2.0 with Pexels, Yandex Wordstat & WordPress - HTTP API for ChatGPT and Make.com',
     environment: {
       TELEGRAM_BOT_TOKEN: TELEGRAM_BOT_TOKEN ? 'SET' : 'NOT SET',
       TELEGRAM_CHANNEL_ID: CHANNEL_ID,
+      WORDPRESS_URL: WORDPRESS_URL ? 'SET' : 'NOT SET',
+      WORDPRESS_USERNAME: WORDPRESS_USERNAME ? 'SET' : 'NOT SET',
+      PEXELS_API_KEY: PEXELS_API_KEY ? 'SET' : 'NOT SET',
+      YANDEX_OAUTH_TOKEN: YANDEX_OAUTH_TOKEN ? 'SET' : 'NOT SET',
       NODE_ENV: process.env.NODE_ENV || 'development',
       PORT: process.env.PORT || 8080
     },
@@ -845,6 +877,581 @@ app.post('/', async (req, res) => {
                   },
                   required: ['phrase'],
                 },
+              },
+              // WordPress Posts
+              {
+                name: 'wordpress_get_posts',
+                description: 'Get WordPress posts with optional filtering',
+                inputSchema: {
+                  type: 'object',
+                  properties: {
+                    page: { type: 'number', description: 'Page number (default: 1)' },
+                    per_page: { type: 'number', description: 'Posts per page (default: 10, max: 100)' },
+                    search: { type: 'string', description: 'Search query' },
+                    status: { type: 'string', description: 'Post status (publish, draft, private, pending)' },
+                    categories: { type: 'array', items: { type: 'number' }, description: 'Category IDs' },
+                    tags: { type: 'array', items: { type: 'number' }, description: 'Tag IDs' },
+                    author: { type: 'number', description: 'Author ID' },
+                    order: { type: 'string', enum: ['asc', 'desc'], description: 'Sort order' },
+                    orderby: { type: 'string', enum: ['date', 'id', 'include', 'relevance', 'slug', 'title'], description: 'Sort by field' }
+                  }
+                }
+              },
+              {
+                name: 'wordpress_get_post',
+                description: 'Get a specific WordPress post by ID',
+                inputSchema: {
+                  type: 'object',
+                  properties: {
+                    id: { type: 'number', description: 'Post ID' }
+                  },
+                  required: ['id']
+                }
+              },
+              {
+                name: 'wordpress_create_post',
+                description: 'Create a new WordPress post',
+                inputSchema: {
+                  type: 'object',
+                  properties: {
+                    title: { type: 'string', description: 'Post title' },
+                    content: { type: 'string', description: 'Post content (HTML)' },
+                    excerpt: { type: 'string', description: 'Post excerpt' },
+                    status: { type: 'string', enum: ['publish', 'draft', 'private', 'pending'], description: 'Post status' },
+                    slug: { type: 'string', description: 'Post slug' },
+                    categories: { type: 'array', items: { type: 'number' }, description: 'Category IDs' },
+                    tags: { type: 'array', items: { type: 'number' }, description: 'Tag IDs' },
+                    featured_media: { type: 'number', description: 'Featured media ID' },
+                    author: { type: 'number', description: 'Author ID' },
+                    sticky: { type: 'boolean', description: 'Make post sticky' },
+                    comment_status: { type: 'string', enum: ['open', 'closed'], description: 'Comment status' },
+                    ping_status: { type: 'string', enum: ['open', 'closed'], description: 'Ping status' }
+                  },
+                  required: ['title', 'content']
+                }
+              },
+              {
+                name: 'wordpress_update_post',
+                description: 'Update an existing WordPress post',
+                inputSchema: {
+                  type: 'object',
+                  properties: {
+                    id: { type: 'number', description: 'Post ID' },
+                    title: { type: 'string', description: 'Post title' },
+                    content: { type: 'string', description: 'Post content (HTML)' },
+                    excerpt: { type: 'string', description: 'Post excerpt' },
+                    status: { type: 'string', enum: ['publish', 'draft', 'private', 'pending'], description: 'Post status' },
+                    slug: { type: 'string', description: 'Post slug' },
+                    categories: { type: 'array', items: { type: 'number' }, description: 'Category IDs' },
+                    tags: { type: 'array', items: { type: 'number' }, description: 'Tag IDs' },
+                    featured_media: { type: 'number', description: 'Featured media ID' },
+                    author: { type: 'number', description: 'Author ID' },
+                    sticky: { type: 'boolean', description: 'Make post sticky' },
+                    comment_status: { type: 'string', enum: ['open', 'closed'], description: 'Comment status' },
+                    ping_status: { type: 'string', enum: ['open', 'closed'], description: 'Ping status' }
+                  },
+                  required: ['id']
+                }
+              },
+              {
+                name: 'wordpress_delete_post',
+                description: 'Delete a WordPress post',
+                inputSchema: {
+                  type: 'object',
+                  properties: {
+                    id: { type: 'number', description: 'Post ID' },
+                    force: { type: 'boolean', description: 'Force delete (bypass trash)' }
+                  },
+                  required: ['id']
+                }
+              },
+              // WordPress Pages
+              {
+                name: 'wordpress_get_pages',
+                description: 'Get WordPress pages with optional filtering',
+                inputSchema: {
+                  type: 'object',
+                  properties: {
+                    page: { type: 'number', description: 'Page number (default: 1)' },
+                    per_page: { type: 'number', description: 'Pages per page (default: 10, max: 100)' },
+                    search: { type: 'string', description: 'Search query' },
+                    status: { type: 'string', description: 'Page status (publish, draft, private, pending)' },
+                    parent: { type: 'number', description: 'Parent page ID' },
+                    author: { type: 'number', description: 'Author ID' },
+                    order: { type: 'string', enum: ['asc', 'desc'], description: 'Sort order' },
+                    orderby: { type: 'string', enum: ['date', 'id', 'include', 'relevance', 'slug', 'title'], description: 'Sort by field' }
+                  }
+                }
+              },
+              {
+                name: 'wordpress_get_page',
+                description: 'Get a specific WordPress page by ID',
+                inputSchema: {
+                  type: 'object',
+                  properties: {
+                    id: { type: 'number', description: 'Page ID' }
+                  },
+                  required: ['id']
+                }
+              },
+              {
+                name: 'wordpress_create_page',
+                description: 'Create a new WordPress page',
+                inputSchema: {
+                  type: 'object',
+                  properties: {
+                    title: { type: 'string', description: 'Page title' },
+                    content: { type: 'string', description: 'Page content (HTML)' },
+                    excerpt: { type: 'string', description: 'Page excerpt' },
+                    status: { type: 'string', enum: ['publish', 'draft', 'private', 'pending'], description: 'Page status' },
+                    slug: { type: 'string', description: 'Page slug' },
+                    parent: { type: 'number', description: 'Parent page ID' },
+                    menu_order: { type: 'number', description: 'Menu order' },
+                    featured_media: { type: 'number', description: 'Featured media ID' },
+                    author: { type: 'number', description: 'Author ID' },
+                    template: { type: 'string', description: 'Page template' },
+                    comment_status: { type: 'string', enum: ['open', 'closed'], description: 'Comment status' },
+                    ping_status: { type: 'string', enum: ['open', 'closed'], description: 'Ping status' }
+                  },
+                  required: ['title', 'content']
+                }
+              },
+              {
+                name: 'wordpress_update_page',
+                description: 'Update an existing WordPress page',
+                inputSchema: {
+                  type: 'object',
+                  properties: {
+                    id: { type: 'number', description: 'Page ID' },
+                    title: { type: 'string', description: 'Page title' },
+                    content: { type: 'string', description: 'Page content (HTML)' },
+                    excerpt: { type: 'string', description: 'Page excerpt' },
+                    status: { type: 'string', enum: ['publish', 'draft', 'private', 'pending'], description: 'Page status' },
+                    slug: { type: 'string', description: 'Page slug' },
+                    parent: { type: 'number', description: 'Parent page ID' },
+                    menu_order: { type: 'number', description: 'Menu order' },
+                    featured_media: { type: 'number', description: 'Featured media ID' },
+                    author: { type: 'number', description: 'Author ID' },
+                    template: { type: 'string', description: 'Page template' },
+                    comment_status: { type: 'string', enum: ['open', 'closed'], description: 'Comment status' },
+                    ping_status: { type: 'string', enum: ['open', 'closed'], description: 'Ping status' }
+                  },
+                  required: ['id']
+                }
+              },
+              {
+                name: 'wordpress_delete_page',
+                description: 'Delete a WordPress page',
+                inputSchema: {
+                  type: 'object',
+                  properties: {
+                    id: { type: 'number', description: 'Page ID' },
+                    force: { type: 'boolean', description: 'Force delete (bypass trash)' }
+                  },
+                  required: ['id']
+                }
+              },
+              // WordPress Media
+              {
+                name: 'wordpress_get_media',
+                description: 'Get WordPress media items with optional filtering',
+                inputSchema: {
+                  type: 'object',
+                  properties: {
+                    page: { type: 'number', description: 'Page number (default: 1)' },
+                    per_page: { type: 'number', description: 'Media per page (default: 10, max: 100)' },
+                    search: { type: 'string', description: 'Search query' },
+                    media_type: { type: 'string', enum: ['image', 'video', 'audio', 'application'], description: 'Media type' },
+                    mime_type: { type: 'string', description: 'MIME type filter' },
+                    parent: { type: 'number', description: 'Parent post/page ID' },
+                    author: { type: 'number', description: 'Author ID' },
+                    order: { type: 'string', enum: ['asc', 'desc'], description: 'Sort order' },
+                    orderby: { type: 'string', enum: ['date', 'id', 'include', 'relevance', 'slug', 'title'], description: 'Sort by field' }
+                  }
+                }
+              },
+              {
+                name: 'wordpress_get_media_item',
+                description: 'Get a specific WordPress media item by ID',
+                inputSchema: {
+                  type: 'object',
+                  properties: {
+                    id: { type: 'number', description: 'Media ID' }
+                  },
+                  required: ['id']
+                }
+              },
+              {
+                name: 'wordpress_upload_media',
+                description: 'Upload a media file to WordPress',
+                inputSchema: {
+                  type: 'object',
+                  properties: {
+                    file_url: { type: 'string', description: 'URL of the file to upload' },
+                    filename: { type: 'string', description: 'Filename for the uploaded file' },
+                    title: { type: 'string', description: 'Media title' },
+                    alt_text: { type: 'string', description: 'Alt text for images' },
+                    caption: { type: 'string', description: 'Media caption' },
+                    description: { type: 'string', description: 'Media description' }
+                  },
+                  required: ['file_url', 'filename']
+                }
+              },
+              {
+                name: 'wordpress_update_media',
+                description: 'Update a WordPress media item',
+                inputSchema: {
+                  type: 'object',
+                  properties: {
+                    id: { type: 'number', description: 'Media ID' },
+                    title: { type: 'string', description: 'Media title' },
+                    alt_text: { type: 'string', description: 'Alt text for images' },
+                    caption: { type: 'string', description: 'Media caption' },
+                    description: { type: 'string', description: 'Media description' }
+                  },
+                  required: ['id']
+                }
+              },
+              {
+                name: 'wordpress_delete_media',
+                description: 'Delete a WordPress media item',
+                inputSchema: {
+                  type: 'object',
+                  properties: {
+                    id: { type: 'number', description: 'Media ID' },
+                    force: { type: 'boolean', description: 'Force delete (bypass trash)' }
+                  },
+                  required: ['id']
+                }
+              },
+              // WordPress Categories
+              {
+                name: 'wordpress_get_categories',
+                description: 'Get WordPress categories',
+                inputSchema: {
+                  type: 'object',
+                  properties: {
+                    page: { type: 'number', description: 'Page number (default: 1)' },
+                    per_page: { type: 'number', description: 'Categories per page (default: 10, max: 100)' },
+                    search: { type: 'string', description: 'Search query' },
+                    hide_empty: { type: 'boolean', description: 'Hide empty categories' },
+                    parent: { type: 'number', description: 'Parent category ID' },
+                    post: { type: 'number', description: 'Post ID to get categories for' },
+                    order: { type: 'string', enum: ['asc', 'desc'], description: 'Sort order' },
+                    orderby: { type: 'string', enum: ['id', 'include', 'name', 'slug', 'term_group', 'description', 'count'], description: 'Sort by field' }
+                  }
+                }
+              },
+              {
+                name: 'wordpress_get_category',
+                description: 'Get a specific WordPress category by ID',
+                inputSchema: {
+                  type: 'object',
+                  properties: {
+                    id: { type: 'number', description: 'Category ID' }
+                  },
+                  required: ['id']
+                }
+              },
+              {
+                name: 'wordpress_create_category',
+                description: 'Create a new WordPress category',
+                inputSchema: {
+                  type: 'object',
+                  properties: {
+                    name: { type: 'string', description: 'Category name' },
+                    description: { type: 'string', description: 'Category description' },
+                    slug: { type: 'string', description: 'Category slug' },
+                    parent: { type: 'number', description: 'Parent category ID' }
+                  },
+                  required: ['name']
+                }
+              },
+              {
+                name: 'wordpress_update_category',
+                description: 'Update a WordPress category',
+                inputSchema: {
+                  type: 'object',
+                  properties: {
+                    id: { type: 'number', description: 'Category ID' },
+                    name: { type: 'string', description: 'Category name' },
+                    description: { type: 'string', description: 'Category description' },
+                    slug: { type: 'string', description: 'Category slug' },
+                    parent: { type: 'number', description: 'Parent category ID' }
+                  },
+                  required: ['id']
+                }
+              },
+              {
+                name: 'wordpress_delete_category',
+                description: 'Delete a WordPress category',
+                inputSchema: {
+                  type: 'object',
+                  properties: {
+                    id: { type: 'number', description: 'Category ID' },
+                    force: { type: 'boolean', description: 'Force delete' }
+                  },
+                  required: ['id']
+                }
+              },
+              // WordPress Tags
+              {
+                name: 'wordpress_get_tags',
+                description: 'Get WordPress tags',
+                inputSchema: {
+                  type: 'object',
+                  properties: {
+                    page: { type: 'number', description: 'Page number (default: 1)' },
+                    per_page: { type: 'number', description: 'Tags per page (default: 10, max: 100)' },
+                    search: { type: 'string', description: 'Search query' },
+                    hide_empty: { type: 'boolean', description: 'Hide empty tags' },
+                    post: { type: 'number', description: 'Post ID to get tags for' },
+                    order: { type: 'string', enum: ['asc', 'desc'], description: 'Sort order' },
+                    orderby: { type: 'string', enum: ['id', 'include', 'name', 'slug', 'term_group', 'description', 'count'], description: 'Sort by field' }
+                  }
+                }
+              },
+              {
+                name: 'wordpress_get_tag',
+                description: 'Get a specific WordPress tag by ID',
+                inputSchema: {
+                  type: 'object',
+                  properties: {
+                    id: { type: 'number', description: 'Tag ID' }
+                  },
+                  required: ['id']
+                }
+              },
+              {
+                name: 'wordpress_create_tag',
+                description: 'Create a new WordPress tag',
+                inputSchema: {
+                  type: 'object',
+                  properties: {
+                    name: { type: 'string', description: 'Tag name' },
+                    description: { type: 'string', description: 'Tag description' },
+                    slug: { type: 'string', description: 'Tag slug' }
+                  },
+                  required: ['name']
+                }
+              },
+              {
+                name: 'wordpress_update_tag',
+                description: 'Update a WordPress tag',
+                inputSchema: {
+                  type: 'object',
+                  properties: {
+                    id: { type: 'number', description: 'Tag ID' },
+                    name: { type: 'string', description: 'Tag name' },
+                    description: { type: 'string', description: 'Tag description' },
+                    slug: { type: 'string', description: 'Tag slug' }
+                  },
+                  required: ['id']
+                }
+              },
+              {
+                name: 'wordpress_delete_tag',
+                description: 'Delete a WordPress tag',
+                inputSchema: {
+                  type: 'object',
+                  properties: {
+                    id: { type: 'number', description: 'Tag ID' },
+                    force: { type: 'boolean', description: 'Force delete' }
+                  },
+                  required: ['id']
+                }
+              },
+              // WordPress Users
+              {
+                name: 'wordpress_get_users',
+                description: 'Get WordPress users',
+                inputSchema: {
+                  type: 'object',
+                  properties: {
+                    page: { type: 'number', description: 'Page number (default: 1)' },
+                    per_page: { type: 'number', description: 'Users per page (default: 10, max: 100)' },
+                    search: { type: 'string', description: 'Search query' },
+                    roles: { type: 'array', items: { type: 'string' }, description: 'User roles' },
+                    who: { type: 'string', enum: ['authors'], description: 'Filter by user type' },
+                    order: { type: 'string', enum: ['asc', 'desc'], description: 'Sort order' },
+                    orderby: { type: 'string', enum: ['id', 'include', 'name', 'registered_date', 'slug', 'email', 'url'], description: 'Sort by field' }
+                  }
+                }
+              },
+              {
+                name: 'wordpress_get_user',
+                description: 'Get a specific WordPress user by ID',
+                inputSchema: {
+                  type: 'object',
+                  properties: {
+                    id: { type: 'number', description: 'User ID' }
+                  },
+                  required: ['id']
+                }
+              },
+              {
+                name: 'wordpress_create_user',
+                description: 'Create a new WordPress user',
+                inputSchema: {
+                  type: 'object',
+                  properties: {
+                    username: { type: 'string', description: 'Username' },
+                    email: { type: 'string', description: 'Email address' },
+                    password: { type: 'string', description: 'Password' },
+                    first_name: { type: 'string', description: 'First name' },
+                    last_name: { type: 'string', description: 'Last name' },
+                    name: { type: 'string', description: 'Display name' },
+                    url: { type: 'string', description: 'Website URL' },
+                    description: { type: 'string', description: 'User description' },
+                    roles: { type: 'array', items: { type: 'string' }, description: 'User roles' }
+                  },
+                  required: ['username', 'email', 'password']
+                }
+              },
+              {
+                name: 'wordpress_update_user',
+                description: 'Update a WordPress user',
+                inputSchema: {
+                  type: 'object',
+                  properties: {
+                    id: { type: 'number', description: 'User ID' },
+                    username: { type: 'string', description: 'Username' },
+                    email: { type: 'string', description: 'Email address' },
+                    password: { type: 'string', description: 'Password' },
+                    first_name: { type: 'string', description: 'First name' },
+                    last_name: { type: 'string', description: 'Last name' },
+                    name: { type: 'string', description: 'Display name' },
+                    url: { type: 'string', description: 'Website URL' },
+                    description: { type: 'string', description: 'User description' },
+                    roles: { type: 'array', items: { type: 'string' }, description: 'User roles' }
+                  },
+                  required: ['id']
+                }
+              },
+              {
+                name: 'wordpress_delete_user',
+                description: 'Delete a WordPress user',
+                inputSchema: {
+                  type: 'object',
+                  properties: {
+                    id: { type: 'number', description: 'User ID' },
+                    force: { type: 'boolean', description: 'Force delete' },
+                    reassign: { type: 'number', description: 'Reassign posts to this user ID' }
+                  },
+                  required: ['id']
+                }
+              },
+              // WordPress Comments
+              {
+                name: 'wordpress_get_comments',
+                description: 'Get WordPress comments',
+                inputSchema: {
+                  type: 'object',
+                  properties: {
+                    page: { type: 'number', description: 'Page number (default: 1)' },
+                    per_page: { type: 'number', description: 'Comments per page (default: 10, max: 100)' },
+                    search: { type: 'string', description: 'Search query' },
+                    post: { type: 'number', description: 'Post ID' },
+                    status: { type: 'string', enum: ['hold', 'approve', 'spam', 'trash'], description: 'Comment status' },
+                    parent: { type: 'number', description: 'Parent comment ID' },
+                    author: { type: 'number', description: 'Author ID' },
+                    order: { type: 'string', enum: ['asc', 'desc'], description: 'Sort order' },
+                    orderby: { type: 'string', enum: ['date', 'date_gmt', 'id', 'include', 'post', 'parent', 'type'], description: 'Sort by field' }
+                  }
+                }
+              },
+              {
+                name: 'wordpress_get_comment',
+                description: 'Get a specific WordPress comment by ID',
+                inputSchema: {
+                  type: 'object',
+                  properties: {
+                    id: { type: 'number', description: 'Comment ID' }
+                  },
+                  required: ['id']
+                }
+              },
+              {
+                name: 'wordpress_create_comment',
+                description: 'Create a new WordPress comment',
+                inputSchema: {
+                  type: 'object',
+                  properties: {
+                    post: { type: 'number', description: 'Post ID' },
+                    content: { type: 'string', description: 'Comment content' },
+                    author_name: { type: 'string', description: 'Author name' },
+                    author_email: { type: 'string', description: 'Author email' },
+                    author_url: { type: 'string', description: 'Author website' },
+                    parent: { type: 'number', description: 'Parent comment ID' },
+                    status: { type: 'string', enum: ['hold', 'approve', 'spam', 'trash'], description: 'Comment status' }
+                  },
+                  required: ['post', 'content']
+                }
+              },
+              {
+                name: 'wordpress_update_comment',
+                description: 'Update a WordPress comment',
+                inputSchema: {
+                  type: 'object',
+                  properties: {
+                    id: { type: 'number', description: 'Comment ID' },
+                    content: { type: 'string', description: 'Comment content' },
+                    author_name: { type: 'string', description: 'Author name' },
+                    author_email: { type: 'string', description: 'Author email' },
+                    author_url: { type: 'string', description: 'Author website' },
+                    status: { type: 'string', enum: ['hold', 'approve', 'spam', 'trash'], description: 'Comment status' }
+                  },
+                  required: ['id']
+                }
+              },
+              {
+                name: 'wordpress_delete_comment',
+                description: 'Delete a WordPress comment',
+                inputSchema: {
+                  type: 'object',
+                  properties: {
+                    id: { type: 'number', description: 'Comment ID' },
+                    force: { type: 'boolean', description: 'Force delete (bypass trash)' }
+                  },
+                  required: ['id']
+                }
+              },
+              // WordPress Site Info
+              {
+                name: 'wordpress_get_site_info',
+                description: 'Get WordPress site information',
+                inputSchema: {
+                  type: 'object',
+                  properties: {}
+                }
+              },
+              {
+                name: 'wordpress_get_settings',
+                description: 'Get WordPress site settings',
+                inputSchema: {
+                  type: 'object',
+                  properties: {}
+                }
+              },
+              {
+                name: 'wordpress_search',
+                description: 'Search WordPress content',
+                inputSchema: {
+                  type: 'object',
+                  properties: {
+                    query: { type: 'string', description: 'Search query' },
+                    type: { type: 'string', enum: ['post', 'page', 'attachment', 'any'], description: 'Content type to search' }
+                  },
+                  required: ['query']
+                }
+              },
+              {
+                name: 'wordpress_test_connection',
+                description: 'Test WordPress connection',
+                inputSchema: {
+                  type: 'object',
+                  properties: {}
+                }
               }
             ]
           }
@@ -1658,6 +2265,1187 @@ app.post('/', async (req, res) => {
             }
             break;
           }
+
+          // WordPress Posts
+          case 'wordpress_get_posts': {
+            if (!wordpressAPI) {
+              result = {
+                success: false,
+                error: 'WordPress API not initialized. Please check WordPress configuration.'
+              };
+            } else {
+              try {
+                const posts = await wordpressAPI.getPosts(args || {});
+                result = {
+                  success: true,
+                  posts: posts,
+                  count: posts.length,
+                  note: 'WordPress posts retrieved successfully'
+                };
+              } catch (error: any) {
+                result = {
+                  success: false,
+                  error: `Failed to get posts: ${error.message}`
+                };
+              }
+            }
+            break;
+          }
+
+          case 'wordpress_get_post': {
+            const { id } = args || {};
+            
+            if (!id) {
+              result = {
+                success: false,
+                error: 'Post ID is required for wordpress_get_post'
+              };
+            } else if (!wordpressAPI) {
+              result = {
+                success: false,
+                error: 'WordPress API not initialized. Please check WordPress configuration.'
+              };
+            } else {
+              try {
+                const post = await wordpressAPI.getPost(id);
+                result = {
+                  success: true,
+                  post: post,
+                  note: 'WordPress post retrieved successfully'
+                };
+              } catch (error: any) {
+                result = {
+                  success: false,
+                  error: `Failed to get post: ${error.message}`
+                };
+              }
+            }
+            break;
+          }
+
+          case 'wordpress_create_post': {
+            const { title, content, ...otherFields } = args || {};
+            
+            if (!title || !content) {
+              result = {
+                success: false,
+                error: 'Title and content are required for wordpress_create_post'
+              };
+            } else if (!wordpressAPI) {
+              result = {
+                success: false,
+                error: 'WordPress API not initialized. Please check WordPress configuration.'
+              };
+            } else {
+              try {
+                const post = await wordpressAPI.createPost({
+                  title,
+                  content,
+                  ...otherFields
+                });
+                result = {
+                  success: true,
+                  post: post,
+                  note: 'WordPress post created successfully'
+                };
+              } catch (error: any) {
+                result = {
+                  success: false,
+                  error: `Failed to create post: ${error.message}`
+                };
+              }
+            }
+            break;
+          }
+
+          case 'wordpress_update_post': {
+            const { id, ...updateFields } = args || {};
+            
+            if (!id) {
+              result = {
+                success: false,
+                error: 'Post ID is required for wordpress_update_post'
+              };
+            } else if (!wordpressAPI) {
+              result = {
+                success: false,
+                error: 'WordPress API not initialized. Please check WordPress configuration.'
+              };
+            } else {
+              try {
+                const post = await wordpressAPI.updatePost(id, updateFields);
+                result = {
+                  success: true,
+                  post: post,
+                  note: 'WordPress post updated successfully'
+                };
+              } catch (error: any) {
+                result = {
+                  success: false,
+                  error: `Failed to update post: ${error.message}`
+                };
+              }
+            }
+            break;
+          }
+
+          case 'wordpress_delete_post': {
+            const { id, force = false } = args || {};
+            
+            if (!id) {
+              result = {
+                success: false,
+                error: 'Post ID is required for wordpress_delete_post'
+              };
+            } else if (!wordpressAPI) {
+              result = {
+                success: false,
+                error: 'WordPress API not initialized. Please check WordPress configuration.'
+              };
+            } else {
+              try {
+                const post = await wordpressAPI.deletePost(id, force);
+                result = {
+                  success: true,
+                  post: post,
+                  note: 'WordPress post deleted successfully'
+                };
+              } catch (error: any) {
+                result = {
+                  success: false,
+                  error: `Failed to delete post: ${error.message}`
+                };
+              }
+            }
+            break;
+          }
+
+          // WordPress Pages
+          case 'wordpress_get_pages': {
+            if (!wordpressAPI) {
+              result = {
+                success: false,
+                error: 'WordPress API not initialized. Please check WordPress configuration.'
+              };
+            } else {
+              try {
+                const pages = await wordpressAPI.getPages(args || {});
+                result = {
+                  success: true,
+                  pages: pages,
+                  count: pages.length,
+                  note: 'WordPress pages retrieved successfully'
+                };
+              } catch (error: any) {
+                result = {
+                  success: false,
+                  error: `Failed to get pages: ${error.message}`
+                };
+              }
+            }
+            break;
+          }
+
+          case 'wordpress_get_page': {
+            const { id } = args || {};
+            
+            if (!id) {
+              result = {
+                success: false,
+                error: 'Page ID is required for wordpress_get_page'
+              };
+            } else if (!wordpressAPI) {
+              result = {
+                success: false,
+                error: 'WordPress API not initialized. Please check WordPress configuration.'
+              };
+            } else {
+              try {
+                const page = await wordpressAPI.getPage(id);
+                result = {
+                  success: true,
+                  page: page,
+                  note: 'WordPress page retrieved successfully'
+                };
+              } catch (error: any) {
+                result = {
+                  success: false,
+                  error: `Failed to get page: ${error.message}`
+                };
+              }
+            }
+            break;
+          }
+
+          case 'wordpress_create_page': {
+            const { title, content, ...otherFields } = args || {};
+            
+            if (!title || !content) {
+              result = {
+                success: false,
+                error: 'Title and content are required for wordpress_create_page'
+              };
+            } else if (!wordpressAPI) {
+              result = {
+                success: false,
+                error: 'WordPress API not initialized. Please check WordPress configuration.'
+              };
+            } else {
+              try {
+                const page = await wordpressAPI.createPage({
+                  title,
+                  content,
+                  ...otherFields
+                });
+                result = {
+                  success: true,
+                  page: page,
+                  note: 'WordPress page created successfully'
+                };
+              } catch (error: any) {
+                result = {
+                  success: false,
+                  error: `Failed to create page: ${error.message}`
+                };
+              }
+            }
+            break;
+          }
+
+          case 'wordpress_update_page': {
+            const { id, ...updateFields } = args || {};
+            
+            if (!id) {
+              result = {
+                success: false,
+                error: 'Page ID is required for wordpress_update_page'
+              };
+            } else if (!wordpressAPI) {
+              result = {
+                success: false,
+                error: 'WordPress API not initialized. Please check WordPress configuration.'
+              };
+            } else {
+              try {
+                const page = await wordpressAPI.updatePage(id, updateFields);
+                result = {
+                  success: true,
+                  page: page,
+                  note: 'WordPress page updated successfully'
+                };
+              } catch (error: any) {
+                result = {
+                  success: false,
+                  error: `Failed to update page: ${error.message}`
+                };
+              }
+            }
+            break;
+          }
+
+          case 'wordpress_delete_page': {
+            const { id, force = false } = args || {};
+            
+            if (!id) {
+              result = {
+                success: false,
+                error: 'Page ID is required for wordpress_delete_page'
+              };
+            } else if (!wordpressAPI) {
+              result = {
+                success: false,
+                error: 'WordPress API not initialized. Please check WordPress configuration.'
+              };
+            } else {
+              try {
+                const page = await wordpressAPI.deletePage(id, force);
+                result = {
+                  success: true,
+                  page: page,
+                  note: 'WordPress page deleted successfully'
+                };
+              } catch (error: any) {
+                result = {
+                  success: false,
+                  error: `Failed to delete page: ${error.message}`
+                };
+              }
+            }
+            break;
+          }
+
+          // WordPress Media
+          case 'wordpress_get_media': {
+            if (!wordpressAPI) {
+              result = {
+                success: false,
+                error: 'WordPress API not initialized. Please check WordPress configuration.'
+              };
+            } else {
+              try {
+                const media = await wordpressAPI.getMedia(args || {});
+                result = {
+                  success: true,
+                  media: media,
+                  count: media.length,
+                  note: 'WordPress media retrieved successfully'
+                };
+              } catch (error: any) {
+                result = {
+                  success: false,
+                  error: `Failed to get media: ${error.message}`
+                };
+              }
+            }
+            break;
+          }
+
+          case 'wordpress_get_media_item': {
+            const { id } = args || {};
+            
+            if (!id) {
+              result = {
+                success: false,
+                error: 'Media ID is required for wordpress_get_media_item'
+              };
+            } else if (!wordpressAPI) {
+              result = {
+                success: false,
+                error: 'WordPress API not initialized. Please check WordPress configuration.'
+              };
+            } else {
+              try {
+                const media = await wordpressAPI.getMediaItem(id);
+                result = {
+                  success: true,
+                  media: media,
+                  note: 'WordPress media item retrieved successfully'
+                };
+              } catch (error: any) {
+                result = {
+                  success: false,
+                  error: `Failed to get media item: ${error.message}`
+                };
+              }
+            }
+            break;
+          }
+
+          case 'wordpress_upload_media': {
+            const { file_url, filename, ...otherFields } = args || {};
+            
+            if (!file_url || !filename) {
+              result = {
+                success: false,
+                error: 'File URL and filename are required for wordpress_upload_media'
+              };
+            } else if (!wordpressAPI) {
+              result = {
+                success: false,
+                error: 'WordPress API not initialized. Please check WordPress configuration.'
+              };
+            } else {
+              try {
+                const media = await wordpressAPI.uploadMedia(file_url, filename, otherFields.title, otherFields.alt_text, otherFields.caption, otherFields.description);
+                result = {
+                  success: true,
+                  media: media,
+                  note: 'WordPress media uploaded successfully'
+                };
+              } catch (error: any) {
+                result = {
+                  success: false,
+                  error: `Failed to upload media: ${error.message}`
+                };
+              }
+            }
+            break;
+          }
+
+          case 'wordpress_update_media': {
+            const { id, ...updateFields } = args || {};
+            
+            if (!id) {
+              result = {
+                success: false,
+                error: 'Media ID is required for wordpress_update_media'
+              };
+            } else if (!wordpressAPI) {
+              result = {
+                success: false,
+                error: 'WordPress API not initialized. Please check WordPress configuration.'
+              };
+            } else {
+              try {
+                const media = await wordpressAPI.updateMedia(id, updateFields);
+                result = {
+                  success: true,
+                  media: media,
+                  note: 'WordPress media updated successfully'
+                };
+              } catch (error: any) {
+                result = {
+                  success: false,
+                  error: `Failed to update media: ${error.message}`
+                };
+              }
+            }
+            break;
+          }
+
+          case 'wordpress_delete_media': {
+            const { id, force = false } = args || {};
+            
+            if (!id) {
+              result = {
+                success: false,
+                error: 'Media ID is required for wordpress_delete_media'
+              };
+            } else if (!wordpressAPI) {
+              result = {
+                success: false,
+                error: 'WordPress API not initialized. Please check WordPress configuration.'
+              };
+            } else {
+              try {
+                const media = await wordpressAPI.deleteMedia(id, force);
+                result = {
+                  success: true,
+                  media: media,
+                  note: 'WordPress media deleted successfully'
+                };
+              } catch (error: any) {
+                result = {
+                  success: false,
+                  error: `Failed to delete media: ${error.message}`
+                };
+              }
+            }
+            break;
+          }
+
+          // WordPress Categories
+          case 'wordpress_get_categories': {
+            if (!wordpressAPI) {
+              result = {
+                success: false,
+                error: 'WordPress API not initialized. Please check WordPress configuration.'
+              };
+            } else {
+              try {
+                const categories = await wordpressAPI.getCategories(args || {});
+                result = {
+                  success: true,
+                  categories: categories,
+                  count: categories.length,
+                  note: 'WordPress categories retrieved successfully'
+                };
+              } catch (error: any) {
+                result = {
+                  success: false,
+                  error: `Failed to get categories: ${error.message}`
+                };
+              }
+            }
+            break;
+          }
+
+          case 'wordpress_get_category': {
+            const { id } = args || {};
+            
+            if (!id) {
+              result = {
+                success: false,
+                error: 'Category ID is required for wordpress_get_category'
+              };
+            } else if (!wordpressAPI) {
+              result = {
+                success: false,
+                error: 'WordPress API not initialized. Please check WordPress configuration.'
+              };
+            } else {
+              try {
+                const category = await wordpressAPI.getCategory(id);
+                result = {
+                  success: true,
+                  category: category,
+                  note: 'WordPress category retrieved successfully'
+                };
+              } catch (error: any) {
+                result = {
+                  success: false,
+                  error: `Failed to get category: ${error.message}`
+                };
+              }
+            }
+            break;
+          }
+
+          case 'wordpress_create_category': {
+            const { name, ...otherFields } = args || {};
+            
+            if (!name) {
+              result = {
+                success: false,
+                error: 'Name is required for wordpress_create_category'
+              };
+            } else if (!wordpressAPI) {
+              result = {
+                success: false,
+                error: 'WordPress API not initialized. Please check WordPress configuration.'
+              };
+            } else {
+              try {
+                const category = await wordpressAPI.createCategory({
+                  name,
+                  ...otherFields
+                });
+                result = {
+                  success: true,
+                  category: category,
+                  note: 'WordPress category created successfully'
+                };
+              } catch (error: any) {
+                result = {
+                  success: false,
+                  error: `Failed to create category: ${error.message}`
+                };
+              }
+            }
+            break;
+          }
+
+          case 'wordpress_update_category': {
+            const { id, ...updateFields } = args || {};
+            
+            if (!id) {
+              result = {
+                success: false,
+                error: 'Category ID is required for wordpress_update_category'
+              };
+            } else if (!wordpressAPI) {
+              result = {
+                success: false,
+                error: 'WordPress API not initialized. Please check WordPress configuration.'
+              };
+            } else {
+              try {
+                const category = await wordpressAPI.updateCategory(id, updateFields);
+                result = {
+                  success: true,
+                  category: category,
+                  note: 'WordPress category updated successfully'
+                };
+              } catch (error: any) {
+                result = {
+                  success: false,
+                  error: `Failed to update category: ${error.message}`
+                };
+              }
+            }
+            break;
+          }
+
+          case 'wordpress_delete_category': {
+            const { id, force = false } = args || {};
+            
+            if (!id) {
+              result = {
+                success: false,
+                error: 'Category ID is required for wordpress_delete_category'
+              };
+            } else if (!wordpressAPI) {
+              result = {
+                success: false,
+                error: 'WordPress API not initialized. Please check WordPress configuration.'
+              };
+            } else {
+              try {
+                const category = await wordpressAPI.deleteCategory(id, force);
+                result = {
+                  success: true,
+                  category: category,
+                  note: 'WordPress category deleted successfully'
+                };
+              } catch (error: any) {
+                result = {
+                  success: false,
+                  error: `Failed to delete category: ${error.message}`
+                };
+              }
+            }
+            break;
+          }
+
+          // WordPress Tags
+          case 'wordpress_get_tags': {
+            if (!wordpressAPI) {
+              result = {
+                success: false,
+                error: 'WordPress API not initialized. Please check WordPress configuration.'
+              };
+            } else {
+              try {
+                const tags = await wordpressAPI.getTags(args || {});
+                result = {
+                  success: true,
+                  tags: tags,
+                  count: tags.length,
+                  note: 'WordPress tags retrieved successfully'
+                };
+              } catch (error: any) {
+                result = {
+                  success: false,
+                  error: `Failed to get tags: ${error.message}`
+                };
+              }
+            }
+            break;
+          }
+
+          case 'wordpress_get_tag': {
+            const { id } = args || {};
+            
+            if (!id) {
+              result = {
+                success: false,
+                error: 'Tag ID is required for wordpress_get_tag'
+              };
+            } else if (!wordpressAPI) {
+              result = {
+                success: false,
+                error: 'WordPress API not initialized. Please check WordPress configuration.'
+              };
+            } else {
+              try {
+                const tag = await wordpressAPI.getTag(id);
+                result = {
+                  success: true,
+                  tag: tag,
+                  note: 'WordPress tag retrieved successfully'
+                };
+              } catch (error: any) {
+                result = {
+                  success: false,
+                  error: `Failed to get tag: ${error.message}`
+                };
+              }
+            }
+            break;
+          }
+
+          case 'wordpress_create_tag': {
+            const { name, ...otherFields } = args || {};
+            
+            if (!name) {
+              result = {
+                success: false,
+                error: 'Name is required for wordpress_create_tag'
+              };
+            } else if (!wordpressAPI) {
+              result = {
+                success: false,
+                error: 'WordPress API not initialized. Please check WordPress configuration.'
+              };
+            } else {
+              try {
+                const tag = await wordpressAPI.createTag({
+                  name,
+                  ...otherFields
+                });
+                result = {
+                  success: true,
+                  tag: tag,
+                  note: 'WordPress tag created successfully'
+                };
+              } catch (error: any) {
+                result = {
+                  success: false,
+                  error: `Failed to create tag: ${error.message}`
+                };
+              }
+            }
+            break;
+          }
+
+          case 'wordpress_update_tag': {
+            const { id, ...updateFields } = args || {};
+            
+            if (!id) {
+              result = {
+                success: false,
+                error: 'Tag ID is required for wordpress_update_tag'
+              };
+            } else if (!wordpressAPI) {
+              result = {
+                success: false,
+                error: 'WordPress API not initialized. Please check WordPress configuration.'
+              };
+            } else {
+              try {
+                const tag = await wordpressAPI.updateTag(id, updateFields);
+                result = {
+                  success: true,
+                  tag: tag,
+                  note: 'WordPress tag updated successfully'
+                };
+              } catch (error: any) {
+                result = {
+                  success: false,
+                  error: `Failed to update tag: ${error.message}`
+                };
+              }
+            }
+            break;
+          }
+
+          case 'wordpress_delete_tag': {
+            const { id, force = false } = args || {};
+            
+            if (!id) {
+              result = {
+                success: false,
+                error: 'Tag ID is required for wordpress_delete_tag'
+              };
+            } else if (!wordpressAPI) {
+              result = {
+                success: false,
+                error: 'WordPress API not initialized. Please check WordPress configuration.'
+              };
+            } else {
+              try {
+                const tag = await wordpressAPI.deleteTag(id, force);
+                result = {
+                  success: true,
+                  tag: tag,
+                  note: 'WordPress tag deleted successfully'
+                };
+              } catch (error: any) {
+                result = {
+                  success: false,
+                  error: `Failed to delete tag: ${error.message}`
+                };
+              }
+            }
+            break;
+          }
+
+          // WordPress Users
+          case 'wordpress_get_users': {
+            if (!wordpressAPI) {
+              result = {
+                success: false,
+                error: 'WordPress API not initialized. Please check WordPress configuration.'
+              };
+            } else {
+              try {
+                const users = await wordpressAPI.getUsers(args || {});
+                result = {
+                  success: true,
+                  users: users,
+                  count: users.length,
+                  note: 'WordPress users retrieved successfully'
+                };
+              } catch (error: any) {
+                result = {
+                  success: false,
+                  error: `Failed to get users: ${error.message}`
+                };
+              }
+            }
+            break;
+          }
+
+          case 'wordpress_get_user': {
+            const { id } = args || {};
+            
+            if (!id) {
+              result = {
+                success: false,
+                error: 'User ID is required for wordpress_get_user'
+              };
+            } else if (!wordpressAPI) {
+              result = {
+                success: false,
+                error: 'WordPress API not initialized. Please check WordPress configuration.'
+              };
+            } else {
+              try {
+                const user = await wordpressAPI.getUser(id);
+                result = {
+                  success: true,
+                  user: user,
+                  note: 'WordPress user retrieved successfully'
+                };
+              } catch (error: any) {
+                result = {
+                  success: false,
+                  error: `Failed to get user: ${error.message}`
+                };
+              }
+            }
+            break;
+          }
+
+          case 'wordpress_create_user': {
+            const { username, email, password, ...otherFields } = args || {};
+            
+            if (!username || !email || !password) {
+              result = {
+                success: false,
+                error: 'Username, email, and password are required for wordpress_create_user'
+              };
+            } else if (!wordpressAPI) {
+              result = {
+                success: false,
+                error: 'WordPress API not initialized. Please check WordPress configuration.'
+              };
+            } else {
+              try {
+                const user = await wordpressAPI.createUser({
+                  username,
+                  email,
+                  password,
+                  ...otherFields
+                });
+                result = {
+                  success: true,
+                  user: user,
+                  note: 'WordPress user created successfully'
+                };
+              } catch (error: any) {
+                result = {
+                  success: false,
+                  error: `Failed to create user: ${error.message}`
+                };
+              }
+            }
+            break;
+          }
+
+          case 'wordpress_update_user': {
+            const { id, ...updateFields } = args || {};
+            
+            if (!id) {
+              result = {
+                success: false,
+                error: 'User ID is required for wordpress_update_user'
+              };
+            } else if (!wordpressAPI) {
+              result = {
+                success: false,
+                error: 'WordPress API not initialized. Please check WordPress configuration.'
+              };
+            } else {
+              try {
+                const user = await wordpressAPI.updateUser(id, updateFields);
+                result = {
+                  success: true,
+                  user: user,
+                  note: 'WordPress user updated successfully'
+                };
+              } catch (error: any) {
+                result = {
+                  success: false,
+                  error: `Failed to update user: ${error.message}`
+                };
+              }
+            }
+            break;
+          }
+
+          case 'wordpress_delete_user': {
+            const { id, force = false, reassign } = args || {};
+            
+            if (!id) {
+              result = {
+                success: false,
+                error: 'User ID is required for wordpress_delete_user'
+              };
+            } else if (!wordpressAPI) {
+              result = {
+                success: false,
+                error: 'WordPress API not initialized. Please check WordPress configuration.'
+              };
+            } else {
+              try {
+                const user = await wordpressAPI.deleteUser(id, force, reassign);
+                result = {
+                  success: true,
+                  user: user,
+                  note: 'WordPress user deleted successfully'
+                };
+              } catch (error: any) {
+                result = {
+                  success: false,
+                  error: `Failed to delete user: ${error.message}`
+                };
+              }
+            }
+            break;
+          }
+
+          // WordPress Comments
+          case 'wordpress_get_comments': {
+            if (!wordpressAPI) {
+              result = {
+                success: false,
+                error: 'WordPress API not initialized. Please check WordPress configuration.'
+              };
+            } else {
+              try {
+                const comments = await wordpressAPI.getComments(args || {});
+                result = {
+                  success: true,
+                  comments: comments,
+                  count: comments.length,
+                  note: 'WordPress comments retrieved successfully'
+                };
+              } catch (error: any) {
+                result = {
+                  success: false,
+                  error: `Failed to get comments: ${error.message}`
+                };
+              }
+            }
+            break;
+          }
+
+          case 'wordpress_get_comment': {
+            const { id } = args || {};
+            
+            if (!id) {
+              result = {
+                success: false,
+                error: 'Comment ID is required for wordpress_get_comment'
+              };
+            } else if (!wordpressAPI) {
+              result = {
+                success: false,
+                error: 'WordPress API not initialized. Please check WordPress configuration.'
+              };
+            } else {
+              try {
+                const comment = await wordpressAPI.getComment(id);
+                result = {
+                  success: true,
+                  comment: comment,
+                  note: 'WordPress comment retrieved successfully'
+                };
+              } catch (error: any) {
+                result = {
+                  success: false,
+                  error: `Failed to get comment: ${error.message}`
+                };
+              }
+            }
+            break;
+          }
+
+          case 'wordpress_create_comment': {
+            const { post, content, ...otherFields } = args || {};
+            
+            if (!post || !content) {
+              result = {
+                success: false,
+                error: 'Post ID and content are required for wordpress_create_comment'
+              };
+            } else if (!wordpressAPI) {
+              result = {
+                success: false,
+                error: 'WordPress API not initialized. Please check WordPress configuration.'
+              };
+            } else {
+              try {
+                const comment = await wordpressAPI.createComment({
+                  post,
+                  content,
+                  ...otherFields
+                });
+                result = {
+                  success: true,
+                  comment: comment,
+                  note: 'WordPress comment created successfully'
+                };
+              } catch (error: any) {
+                result = {
+                  success: false,
+                  error: `Failed to create comment: ${error.message}`
+                };
+              }
+            }
+            break;
+          }
+
+          case 'wordpress_update_comment': {
+            const { id, ...updateFields } = args || {};
+            
+            if (!id) {
+              result = {
+                success: false,
+                error: 'Comment ID is required for wordpress_update_comment'
+              };
+            } else if (!wordpressAPI) {
+              result = {
+                success: false,
+                error: 'WordPress API not initialized. Please check WordPress configuration.'
+              };
+            } else {
+              try {
+                const comment = await wordpressAPI.updateComment(id, updateFields);
+                result = {
+                  success: true,
+                  comment: comment,
+                  note: 'WordPress comment updated successfully'
+                };
+              } catch (error: any) {
+                result = {
+                  success: false,
+                  error: `Failed to update comment: ${error.message}`
+                };
+              }
+            }
+            break;
+          }
+
+          case 'wordpress_delete_comment': {
+            const { id, force = false } = args || {};
+            
+            if (!id) {
+              result = {
+                success: false,
+                error: 'Comment ID is required for wordpress_delete_comment'
+              };
+            } else if (!wordpressAPI) {
+              result = {
+                success: false,
+                error: 'WordPress API not initialized. Please check WordPress configuration.'
+              };
+            } else {
+              try {
+                const comment = await wordpressAPI.deleteComment(id, force);
+                result = {
+                  success: true,
+                  comment: comment,
+                  note: 'WordPress comment deleted successfully'
+                };
+              } catch (error: any) {
+                result = {
+                  success: false,
+                  error: `Failed to delete comment: ${error.message}`
+                };
+              }
+            }
+            break;
+          }
+
+          // WordPress Site Info
+          case 'wordpress_get_site_info': {
+            if (!wordpressAPI) {
+              result = {
+                success: false,
+                error: 'WordPress API not initialized. Please check WordPress configuration.'
+              };
+            } else {
+              try {
+                const siteInfo = await wordpressAPI.getSiteInfo();
+                result = {
+                  success: true,
+                  site_info: siteInfo,
+                  note: 'WordPress site information retrieved successfully'
+                };
+              } catch (error: any) {
+                result = {
+                  success: false,
+                  error: `Failed to get site info: ${error.message}`
+                };
+              }
+            }
+            break;
+          }
+
+          case 'wordpress_get_settings': {
+            if (!wordpressAPI) {
+              result = {
+                success: false,
+                error: 'WordPress API not initialized. Please check WordPress configuration.'
+              };
+            } else {
+              try {
+                const settings = await wordpressAPI.getSettings();
+                result = {
+                  success: true,
+                  settings: settings,
+                  note: 'WordPress settings retrieved successfully'
+                };
+              } catch (error: any) {
+                result = {
+                  success: false,
+                  error: `Failed to get settings: ${error.message}`
+                };
+              }
+            }
+            break;
+          }
+
+          case 'wordpress_search': {
+            const { query, type } = args || {};
+            
+            if (!query) {
+              result = {
+                success: false,
+                error: 'Query is required for wordpress_search'
+              };
+            } else if (!wordpressAPI) {
+              result = {
+                success: false,
+                error: 'WordPress API not initialized. Please check WordPress configuration.'
+              };
+            } else {
+              try {
+                const searchResults = await wordpressAPI.search(query, type);
+                result = {
+                  success: true,
+                  search_results: searchResults,
+                  count: searchResults.length,
+                  query: query,
+                  type: type || 'any',
+                  note: 'WordPress search completed successfully'
+                };
+              } catch (error: any) {
+                result = {
+                  success: false,
+                  error: `Failed to search: ${error.message}`
+                };
+              }
+            }
+            break;
+          }
+
+          case 'wordpress_test_connection': {
+            if (!wordpressAPI) {
+              result = {
+                success: false,
+                error: 'WordPress API not initialized. Please check WordPress configuration.'
+              };
+            } else {
+              try {
+                const isConnected = await wordpressAPI.testConnection();
+                result = {
+                  success: isConnected,
+                  connected: isConnected,
+                  wordpress_url: WORDPRESS_URL,
+                  note: isConnected ? 'WordPress connection successful' : 'WordPress connection failed'
+                };
+              } catch (error: any) {
+                result = {
+                  success: false,
+                  error: `Failed to test connection: ${error.message}`
+                };
+              }
+            }
+            break;
+          }
           
           default:
             result = {
@@ -1739,6 +3527,8 @@ app.get('/health', async (req, res) => {
     mcp_server: true,
     pexels_enabled: !!PEXELS_API_KEY,
     yandex_oauth: !!YANDEX_OAUTH_TOKEN,
+    wordpress_enabled: !!wordpressAPI,
+    wordpress_url: WORDPRESS_URL || 'Not configured',
     environment: process.env.NODE_ENV || 'development'
   });
 });
@@ -2084,7 +3874,7 @@ async function main() {
     const port = process.env.PORT || 8080;
     
     app.listen(port, () => {
-      console.log('🚀 Telegram MCP Server v2.2.0 with Pexels & Yandex Wordstat running on port', port);
+      console.log('🚀 Telegram MCP Server v2.2.0 with Pexels, Yandex Wordstat & WordPress running on port', port);
       console.log(`🌐 API URL: http://localhost:${port}`);
       console.log(`📖 MCP Info: http://localhost:${port}/mcp`);
       console.log(`🔧 Tools: http://localhost:${port}/mcp/tools/list`);
@@ -2092,6 +3882,11 @@ async function main() {
       console.log('✅ Ready for testing!');
       console.log(`📱 Target channel: ${CHANNEL_ID}`);
       console.log(`🔑 Bot token: ${TELEGRAM_BOT_TOKEN ? 'SET' : 'NOT SET'}`);
+      console.log(`🌐 WordPress: ${wordpressAPI ? 'CONNECTED' : 'NOT CONFIGURED'}`);
+      if (wordpressAPI) {
+        console.log(`   URL: ${WORDPRESS_URL}`);
+        console.log(`   User: ${WORDPRESS_USERNAME}`);
+      }
     });
   } catch (error) {
     console.error('❌ Server startup error:', error);
