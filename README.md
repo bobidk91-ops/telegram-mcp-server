@@ -2,6 +2,10 @@
 
 Полнофункциональный MCP (Model Context Protocol) сервер для интеграции с Telegram каналами, Pexels API и WordPress.
 
+<a href="https://glama.ai/mcp/servers/@bobidk91-ops/telegram-mcp-server">
+  <img width="380" height="200" src="https://glama.ai/mcp/servers/@bobidk91-ops/telegram-mcp-server/badge" alt="Telegram Server MCP server" />
+</a>
+
 ## 🚀 Возможности
 
 - **12 Telegram функций**: отправка сообщений, фото, видео, документов, опросов, реакций, редактирование, удаление, закрепление сообщений
